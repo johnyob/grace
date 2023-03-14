@@ -1,4 +1,4 @@
-open Grace_core.Diagnostic
+open Grace.Diagnostic
 
 module Style = struct
   module Style = struct

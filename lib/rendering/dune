@@ -1,6 +1,6 @@
 (library
  (name grace_rendering)
  (public_name grace.rendering)
- (libraries core fmt fmt_doc grace.core)
+ (libraries core fmt fmt_doc grace)
  (preprocess
   (pps ppx_jane)))

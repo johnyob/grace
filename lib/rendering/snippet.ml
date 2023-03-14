@@ -1,5 +1,5 @@
 open Core
-open Grace_core
+open Grace
 open Text
 open Diagnostic
 
@@ -460,5 +460,6 @@ let ppd ~config { severity; message; files; notes } =
     ++ (if (* file tail for last file *) not (List.is_empty files)
        then file_tail
        else empty)
-    ++ notes)
+    ++ notes
+    ++ newline)
 ;;
