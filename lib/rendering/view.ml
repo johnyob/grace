@@ -119,7 +119,7 @@ module Rich = struct
             | `Top _ -> None
             | _ -> Some Mark.{ idx; priority; kind = `Vertical })
       in
-      (* 3. Create [Content] snippet *)
+      (* 3. Create [Content] snippet. *)
       let annotated_source_line =
         List.mapi
           (Text.explode (Text.rstrip source_line))
@@ -156,7 +156,7 @@ module Rich = struct
           (* 2. Create [Single_label] snippet *)
           let carets =
             List.filter_mapi
-              (Text.explode (Text.rstrip source_line))
+              (Text.explode (Text.rstrip source_line) @ [ " " ])
               ~f:(fun column_idx _chr ->
                 let column_num = column_idx + 1 in
                 let priority =

@@ -304,10 +304,6 @@ fn main() {
         = For more information about an error, try `rustc --explain` |}]
 ;;
 
-(* observations:
-    ordering of overlapping labels is strange (probably due to some of the sorting we do)     
-*)
-
 let%expect_test "empty ranges" =
   let files = Files.create () in
   let file_id = Files.add files "hello" "Hello world!\nBye world!\n   " in
@@ -352,22 +348,18 @@ let%expect_test "empty ranges" =
     note: end of line
         ┌─ hello:1:13
       1 │  Hello world!
-        │   end of line
+        │              ^ end of line
 
     note: end of line
         ┌─ hello:2:11
       2 │  Bye world!
-        │   end of line
+        │            ^ end of line
 
     note: end of line
         ┌─ hello:3:4
       3 │
         │   end of line |}]
 ;;
-
-(* 
-  observation: we don't trailing position on \n correctly   
-*)
 
 let%expect_test "same ranges" =
   let files = Files.create () in
@@ -396,8 +388,6 @@ let%expect_test "same ranges" =
         │      Unexpected '{'
         │      Expected '(' |}]
 ;;
-
-(* observation: flipped order of labels in same position. Probably a fold / sort *)
 
 let%expect_test "multiline_overlapping" =
   let files = Files.create () in
@@ -464,4 +454,3 @@ let%expect_test "multiline_overlapping" =
         │   ╰─────────' `match` arms have incompatible types
         = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError` |}]
 ;;
-
