@@ -179,11 +179,12 @@ module Rich = struct
         | hanging_labels ->
           (* 1. Sort hanging labels by [Column_span.start]  *)
           let hanging_labels =
-            List.sort
+            List.stable_sort
               hanging_labels
               ~compare:
                 Comparable.(
-                  lift Column_number.compare ~f:(fun (span, _) -> Column_span.start span))
+                  lift [%compare: Column_number.t * Priority.t] ~f:(fun (span, label) ->
+                      Column_span.start span, label.Label.priority))
           in
           (* 2. Create [Caret_pointers] *)
           let caret_pointers =

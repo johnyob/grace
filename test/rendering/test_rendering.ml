@@ -269,8 +269,8 @@ fn main() {
       1 │  fn fn_test1() -> _ { 5 }
         │                   ^
         │                   │
-        │                   help: replace with the correct return type: `i32`
         │                   not allowed in type signatures
+        │                   help: replace with the correct return type: `i32`
 
     error: the type placeholder `_` is not allowed within types on item signatures
         ┌─ typeck_type_placeholder_item.rs:2:28
@@ -393,8 +393,8 @@ let%expect_test "same ranges" =
       1 │  ::S { }
         │      ^
         │      │
-        │      Expected '('
-        │      Unexpected '{' |}]
+        │      Unexpected '{'
+        │      Expected '(' |}]
 ;;
 
 (* observation: flipped order of labels in same position. Probably a fold / sort *)
