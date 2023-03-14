@@ -15,7 +15,11 @@ module type S = sig
     -> Fmt_doc.t
 end
 
-module Default = struct
+module Default : sig
+  type t = { config : Config.t } [@@unboxed]
+
+  include S with type t := t
+end = struct
   open Snippet
 
   type t = { config : Config.t } [@@unboxed]
