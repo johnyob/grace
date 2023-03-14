@@ -26,7 +26,16 @@ module Priority = struct
   type t =
     | Primary
     | Secondary
-  [@@deriving equal, compare, sexp]
+  [@@deriving equal, sexp]
+
+  (* Ensures [compare Primary Secondary > 0] *)
+  let compare t1 t2 =
+    match t1, t2 with
+    | Primary, Primary -> 0
+    | Primary, Secondary -> 1
+    | Secondary, Secondary -> 0
+    | Secondary, Primary -> -1
+  ;;
 
   let is_primary = function
     | Primary -> true
