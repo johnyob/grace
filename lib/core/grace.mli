@@ -240,10 +240,15 @@ module Files : sig
   end
 end
 
-(** {4 Diagnostics} *)
+(** {4 Diagnostics} 
+
+    A diagnostic is a collection of messages related to a single error/warning. 
+    Diagnostics are rendered by the rendering engine. 
+*)
 
 module Diagnostic : sig
   module Severity : sig
+    (** Severity levels *)
     type t =
       | Help
       | Note
@@ -269,6 +274,11 @@ module Diagnostic : sig
   end
 
   module Message : sig
+    (** The type of a message. 
+
+        Messages are unrendered formatted strings. The rendering is delayed till Grace's renderering engine 
+        since layout decisions are it's responsibility.
+    *)
     type t = Formatter.t -> unit [@@deriving sexp]
 
     val pp : t Fmt.t
@@ -276,6 +286,7 @@ module Diagnostic : sig
   end
 
   module Label : sig
+    (** A label is message associated with some source information *)
     type t =
       { id : File.Id.t
       ; range : Range.t
