@@ -142,7 +142,7 @@ module Diagnostic : sig
   end
 
   module Message : sig
-    type t = Formatter.t -> unit
+    type t = Formatter.t -> unit [@@deriving sexp]
 
     val pp : t Fmt.t
   end
@@ -154,6 +154,7 @@ module Diagnostic : sig
       ; priority : Priority.t
       ; message : Message.t
       }
+    [@@deriving sexp]
 
     val primary : id:File.Id.t -> range:Range.t -> Message.t -> t
     val secondary : id:File.Id.t -> range:Range.t -> Message.t -> t
@@ -165,4 +166,5 @@ module Diagnostic : sig
     ; labels : Label.t list
     ; notes : Message.t list
     }
+  [@@deriving sexp]
 end

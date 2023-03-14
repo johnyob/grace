@@ -41,6 +41,14 @@ module Message = struct
   type t = Formatter.t -> unit
 
   let pp ppf t = t ppf
+
+  let to_string t =
+    t Format.str_formatter;
+    Format.flush_str_formatter ()
+  ;;
+
+  let sexp_of_t t = Sexp.Atom (to_string t)
+  let t_of_sexp sexp : t = fun ppf -> Fmt.string ppf (Sexp.to_string sexp)
 end
 
 module Label = struct
@@ -50,6 +58,7 @@ module Label = struct
     ; priority : Priority.t
     ; message : Message.t
     }
+  [@@deriving sexp]
 
   let primary ~id ~range message = { id; range; message; priority = Primary }
   let secondary ~id ~range message = { id; range; message; priority = Secondary }
@@ -61,3 +70,4 @@ type t =
   ; labels : Label.t list
   ; notes : Message.t list
   }
+[@@deriving sexp]
