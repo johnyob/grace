@@ -1,0 +1,6 @@
+(library
+ (name grace_rendering)
+ (public_name grace.rendering)
+ (libraries core fmt grace iter core_unix core_unix.bigstring_unix)
+ (preprocess
+  (pps ppx_jane)))

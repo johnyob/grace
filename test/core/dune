@@ -1,0 +1,7 @@
+(library
+ (name test_core)
+ (modules import test_range)
+ (libraries core fmt grace)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane)))

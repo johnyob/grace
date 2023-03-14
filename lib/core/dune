@@ -1,0 +1,6 @@
+(library
+ (name grace)
+ (public_name grace)
+ (libraries core)
+ (preprocess
+  (pps ppx_jane)))
