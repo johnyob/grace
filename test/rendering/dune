@@ -1,0 +1,6 @@
+(library
+ (name test_rendering)
+ (libraries core grace grace.rendering fmt_doc)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane)))

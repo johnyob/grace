@@ -27,7 +27,8 @@ end
 
 module Single_label = struct
   type t =
-    { carets : Priority.t option list
+    { carets :
+        (Column_number.t * Priority.t) list (* invariant: sorted by column number *)
     ; trailing_label : Label.t option
     }
   [@@deriving sexp]
@@ -41,6 +42,7 @@ end
 module Hanging_label = struct
   type t =
     { pointers : Caret_pointers.t
+    ; label_start : Column_number.t
     ; label : Label.t
     }
   [@@deriving sexp]

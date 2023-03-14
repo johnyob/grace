@@ -6,7 +6,7 @@ open Text
 module type S = sig
   type t
 
-  val to_snippet : t -> Diagnostic.t -> files:Files.t -> Snippet.t
+  val to_snippet : ?debug:bool -> t -> Diagnostic.t -> files:Files.t -> Snippet.t
 end
 
 module Rich = struct
@@ -52,8 +52,9 @@ module Rich = struct
         | None -> None
         | Some (idx, (tspan, label)) ->
           Option.some_if
-            (List.for_all single_labels ~f:(fun (span, _) ->
-                 Column_span.are_disjoint span tspan))
+            (List.for_alli single_labels ~f:(fun idx' (span, _) ->
+                 (* All labels (excluding trailing label) must not overlap with trailing label *)
+                 idx = idx' || Column_span.are_disjoint span tspan))
             (idx, label)
       in
       match trailing_label with
@@ -70,7 +71,13 @@ module Rich = struct
           Snippet.Mark.{ idx; priority; kind = `Vertical })
     ;;
 
-    let to_snippet_lines { line; single_labels; multi_labels } ~files ~file_id =
+    let to_snippet_lines
+        ?(debug = false)
+        ({ line; single_labels; multi_labels } as t)
+        ~files
+        ~file_id
+      =
+      if debug then Fmt.pr "@[Line: %a@]@." Sexp.pp_hum (sexp_of_t t);
       let open Snippet in
       (* 1. Handle unicode support by mapping indices into text locations (using [source_line]) *)
       let line_range =
@@ -141,18 +148,16 @@ module Rich = struct
           let hanging_labels, trailing_label = trailing_label single_labels in
           (* 2. Create [Single_label] snippet *)
           let carets =
-            List.mapi
+            List.filter_mapi
               (Text.explode (Text.rstrip source_line))
-              ~f:(fun column_number _chr ->
-                let column_number = column_number + 1 in
+              ~f:(fun column_idx _chr ->
+                let column_num = column_idx + 1 in
                 let priority =
                   List.filter_map single_labels ~f:(fun (span, label) ->
-                      Option.some_if
-                        (Column_span.contains span column_number)
-                        label.priority)
+                      Option.some_if (Column_span.contains span column_num) label.priority)
                   |> List.max_elt ~compare:Priority.compare
                 in
-                priority)
+                Option.map priority ~f:(fun priority -> column_num, priority))
           in
           let single_label =
             Line.Source
@@ -170,8 +175,8 @@ module Rich = struct
             List.sort
               hanging_labels
               ~compare:
-                (Comparable.lift Column_number.compare ~f:(fun (span, _) ->
-                     Column_span.start span))
+                Comparable.(
+                  lift Column_number.compare ~f:(fun (span, _) -> Column_span.start span))
           in
           (* 2. Create [Caret_pointers] *)
           let caret_pointers =
@@ -192,10 +197,11 @@ module Rich = struct
           let hanging_labels =
             hanging_labels
             |> List.fold_right ~init:[] ~f:(fun (span, label) hanging_labels ->
-                   Hanging_label.{ pointers = []; label }
+                   Hanging_label.{ pointers = []; label_start = Column_span.start span; label }
                    :: add_caret_pointer (span, label.priority) hanging_labels)
             |> List.map ~f:(fun hanging_label ->
                    Line.Source { marks = vert_marks; line = Hanging_label hanging_label })
+            |> List.rev
           in
           caret_pointers :: hanging_labels
       in
@@ -265,7 +271,7 @@ module Rich = struct
       }
     ;;
 
-    let to_snippet_lines { id; locus = locus'; labels } ~files =
+    let to_snippet_lines ?debug { id; locus = locus'; labels } ~files =
       (* Create locus *)
       let locus = Snippet.Line.Raw (Locus (locus ~files id locus')) in
       (* Split labels into [single_labels] and [multi_labels] *)
@@ -361,7 +367,7 @@ module Rich = struct
       let rec loop lines =
         match lines with
         | [] -> []
-        | [ line ] -> Line.to_snippet_lines ~files ~file_id:id line
+        | [ line ] -> Line.to_snippet_lines ?debug ~files ~file_id:id line
         | line :: next_line :: lines ->
           let line_delta = Line_index.(next_line.line -. line.line) in
           let marks =
@@ -372,7 +378,7 @@ module Rich = struct
                      | _ -> true)
               |> Line.vert_marks)
           in
-          Line.to_snippet_lines ~files ~file_id:id line
+          Line.to_snippet_lines ?debug ~files ~file_id:id line
           @ (if line_delta <= 0
             then (* Impossible. Invariant [next_line.line > line.line] *)
               assert false
@@ -409,7 +415,7 @@ module Rich = struct
   end
 end
 
-let rich ~files (diagnostic : Diagnostic.t) =
+let rich ?debug ~files (diagnostic : Diagnostic.t) =
   let Diagnostic.{ severity; message; labels; notes } = diagnostic in
   let labels_per_file =
     List.sort_and_group labels ~compare:(fun label1 label2 ->
@@ -426,7 +432,7 @@ let rich ~files (diagnostic : Diagnostic.t) =
           |> List.max_elt ~compare:[%compare: Diagnostic.Priority.t * Byte_index.t]
           |> Option.value_exn ~here:[%here]
         in
-        Rich.File.to_snippet_lines { id = file_id; locus; labels } ~files)
+        Rich.File.to_snippet_lines ?debug { id = file_id; locus; labels } ~files)
       labels_per_file
   in
   Snippet.

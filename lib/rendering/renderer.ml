@@ -170,14 +170,27 @@ end = struct
     | _ -> Fmt_doc.(render_default_marks t ~marks_width ~severity marks ++ sp)
   ;;
 
+  let render_carets t ~severity carets =
+    (* Approach:
+        1. Start at col 1
+        2. Iterate through carets incrementing up to the last caret *)
+    List.folding_map
+      carets
+      ~init:Column_number.initial
+      ~f:(fun col (caret_col, caret_priority) ->
+        if Column_number.(col <= caret_col)
+        then (
+          let width = caret_col - col in
+          ( caret_col + 1
+          , Fmt_doc.(repeat width sp ++ caret t ~severity ~priority:caret_priority) ))
+        else
+          (* Only possible if two carets in the same position. Not possible *)
+          assert false)
+    |> Fmt_doc.(concat ~sep:empty)
+  ;;
+
   let render_single_label t ~severity ({ carets; trailing_label } : Single_label.t) =
-    let carets =
-      Fmt_doc.(
-        concat ~sep:empty
-        @@ List.map carets ~f:(function
-               | None -> sp
-               | Some priority -> caret t ~severity ~priority))
-    in
+    let carets = render_carets t ~severity carets in
     let trailing_label =
       Fmt_doc.(option (fun label -> sp ++ render_label t ~severity label) trailing_label)
     in
@@ -193,26 +206,35 @@ end = struct
         4. Continue 
     *)
     let module Column_span = Span.Column_number in
-    List.folding_map
-      caret_pointers
-      ~init:Column_number.initial
-      ~f:(fun col (span, priority) ->
-        let start = Column_span.start span in
-        if Column_number.(col <= start)
-        then (
-          (* Add [start - 1 - col] spaces + pointer *)
-          let sps = pad " " ~width:(max 0 (start - col - 1)) in
-          start + 1, Fmt_doc.(sps ++ pointer_left t ~severity ~priority))
-        else
-          (* [if Column_number.(col > start)]*)
-          (* Skip (only occurs if we have two labels starting at same position), return empty *)
-          col, Fmt_doc.empty)
-    |> Fmt_doc.(concat ~sep:empty)
+    let caret_pointers_end, caret_pointers =
+      List.fold_map
+        caret_pointers
+        ~init:Column_number.initial
+        ~f:(fun col (span, priority) ->
+          let start = Column_span.start span in
+          if Column_number.(col <= start)
+          then (
+            (* Add [start - col] spaces + pointer *)
+            let width = start - col in
+            start + 1, Fmt_doc.(repeat width sp ++ pointer_left t ~severity ~priority))
+          else
+            (* [if Column_number.(col > start)]*)
+            (* Skip (only occurs if we have two labels starting at same position), return empty *)
+            col, Fmt_doc.empty)
+    in
+    caret_pointers_end, Fmt_doc.(concat caret_pointers ~sep:empty)
   ;;
 
-  let render_hanging_label t ~severity ({ pointers; label } : Hanging_label.t) =
+  let render_hanging_label
+      t
+      ~severity
+      ({ pointers; label_start; label } : Hanging_label.t)
+    =
+    let caret_pointers_end, caret_pointers = render_caret_pointers t ~severity pointers in
     Fmt_doc.(
-      render_caret_pointers t ~severity pointers ++ sp ++ render_label t ~severity label)
+      caret_pointers
+      ++ repeat (label_start - caret_pointers_end) sp
+      ++ render_label t ~severity label)
   ;;
 
   let render_multi_label t ~severity ({ kind; priority; _ } : Multi_label.t) =
@@ -257,7 +279,11 @@ end = struct
     | Content content -> render_content t ~severity content
     | Single_label single_label -> render_single_label t ~severity single_label
     | Multi_label multi_label -> render_multi_label t ~severity multi_label
-    | Caret_pointers caret_pointers -> render_caret_pointers t ~severity caret_pointers
+    | Caret_pointers caret_pointers ->
+      let _caret_pointers_end, caret_pointers =
+        render_caret_pointers t ~severity caret_pointers
+      in
+      caret_pointers
     | Hanging_label hanging_label -> render_hanging_label t ~severity hanging_label
     | Break -> Fmt_doc.empty
   ;;
