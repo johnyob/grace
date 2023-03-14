@@ -1,73 +1,139 @@
 open Core
-open Index
 
-module Location = struct
-  type t =
-    { line : Line_index.t
-    ; column : Column_index.t
-    }
-  [@@deriving sexp]
+module type Index = sig
+  type t = private int [@@deriving hash, sexp]
 
-  let pp ppf { line; column } =
-    Fmt.pf ppf "%a:%a" Line_index.pp line Column_index.pp column
-  ;;
+  include Comparable.S with type t := t
+  include Invariant.S with type t := t
 
-  let ppd = Fmt_doc.of_pp pp
-  let create line column = { line; column }
+  val create : int -> t
+  val pp : t Fmt.t
+  val ppd : t -> Fmt_doc.t
+  val initial : t
+  val ( + ) : t -> int -> t
+  val ( - ) : t -> int -> t
 end
 
-module Range = struct
+module Int_index = struct
   module T = struct
-    type t =
-      { start : Byte_index.t
-      ; stop : Byte_index.t
-      }
-    [@@deriving equal, sexp]
-
-    let compare t1 t2 =
-      let start_cmp = Byte_index.compare t1.start t2.start in
-      if start_cmp = 0 then Byte_index.compare t1.stop t2.stop else start_cmp
-    ;;
+    type t = int [@@deriving compare, hash, sexp]
   end
 
   include T
+  include Comparable.Make (T)
 
-  let invariant ({ start; stop } as t) =
-    Invariant.invariant [%here] t [%sexp_of: t] (fun () ->
-        assert (Byte_index.compare start Byte_index.initial >= 0);
-        assert (Byte_index.compare stop start >= 0))
-  ;;
+  let invariant t = Invariant.invariant [%here] t sexp_of_t (fun () -> assert (t >= 0))
+  let pp = Fmt.int
+  let ppd = Fmt_doc.int
 
-  let pp ppf { start; stop } =
-    Fmt.pf ppf "[%a, %a)" Byte_index.pp start Byte_index.pp stop
-  ;;
-
-  let ppd = Fmt_doc.of_pp pp
-
-  let create start stop =
-    let t = { start; stop } in
+  let create t =
     invariant t;
     t
   ;;
 
-  let initial = create Byte_index.initial Byte_index.initial
+  let initial = 0
 
-  let merge t1 t2 =
-    let start = Comparable.min Byte_index.compare t1.start t2.start in
-    let stop = Comparable.max Byte_index.compare t1.stop t2.stop in
-    { start; stop }
+  let ( + ) t off =
+    let t = t + off in
+    invariant t;
+    t
   ;;
 
-  let are_disjoint t1 t2 =
-    let first, last = if Byte_index.compare t1.stop t2.stop < 0 then t1, t2 else t2, t1 in
-    Byte_index.compare first.start last.start <= 0
+  let ( - ) t off =
+    let t = t - off in
+    invariant t;
+    t
   ;;
+end
 
-  let contains { start; stop } elem =
-    Byte_index.compare start elem <= 0 && Byte_index.compare elem stop < 0
-  ;;
+module Line_index = Int_index
+module Column_index = Int_index
 
-  let from_string string = create Byte_index.initial (String.length string)
+module Byte_index = struct
+  include Int_index
 
-  include Comparable.Make (T)
+  let of_lex Lexing.{ pos_cnum; _ } = create pos_cnum
+end
+
+module Range = struct
+  module type Pos = sig
+    type t [@@deriving compare, sexp]
+
+    val initial : t
+    val pp : t Fmt.t
+  end
+
+  module type S = sig
+    type pos
+    type t [@@deriving sexp]
+
+    include Comparable.S with type t := t
+    include Invariant.S with type t := t
+
+    val pp : t Fmt.t
+    val ppd : t -> Fmt_doc.t
+    val create : pos -> pos -> t
+    val initial : t
+    val merge : t -> t -> t
+    val are_disjoint : t -> t -> bool
+    val contains : t -> pos -> bool
+  end
+
+  module Make (P : Pos) = struct
+    module T = struct
+      type t =
+        { start : P.t
+        ; stop : P.t
+        }
+      [@@deriving sexp]
+
+      let compare t1 t2 =
+        let start_cmp = P.compare t1.start t2.start in
+        if start_cmp = 0 then P.compare t1.stop t2.stop else start_cmp
+      ;;
+    end
+
+    include T
+
+    let invariant ({ start; stop } as t) =
+      Invariant.invariant [%here] t [%sexp_of: t] (fun () ->
+          assert (P.compare start P.initial >= 0);
+          assert (P.compare stop start >= 0))
+    ;;
+
+    let pp ppf { start; stop } = Fmt.pf ppf "[%a, %a)" P.pp start P.pp stop
+    let ppd = Fmt_doc.of_pp pp
+
+    let create start stop =
+      let t = { start; stop } in
+      invariant t;
+      t
+    ;;
+
+    let initial = create P.initial P.initial
+
+    let merge t1 t2 =
+      let start = Comparable.min P.compare t1.start t2.start in
+      let stop = Comparable.max P.compare t1.stop t2.stop in
+      { start; stop }
+    ;;
+
+    let are_disjoint t1 t2 =
+      let first, last = if P.compare t1.stop t2.stop < 0 then t1, t2 else t2, t1 in
+      P.compare first.start last.start <= 0
+    ;;
+
+    let contains { start; stop } elem =
+      P.compare start elem <= 0 && P.compare elem stop < 0
+    ;;
+
+    include Comparable.Make (T)
+  end
+
+  module Line_index = Make (Line_index)
+  module Column_index = Make (Column_index)
+  include Make (Byte_index)
+
+  let of_string str = create Byte_index.initial (String.length str)
+  let of_lex start stop = create (Byte_index.of_lex start) (Byte_index.of_lex stop)
 end

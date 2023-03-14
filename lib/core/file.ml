@@ -1,5 +1,4 @@
 open Core
-open Index
 open Source
 
 module Id : sig
@@ -70,17 +69,37 @@ let line_index t (idx : Byte_index.t) : Line_index.t =
        ~error:(Error.create_s [%message "Byte index out of bounds" (idx : Byte_index.t)])
 ;;
 
-let location t (idx : Byte_index.t) : Location.t =
+let location t (idx : Byte_index.t) : Text.Location.t =
   let line_index = line_index t idx in
   let line_start_index = line_start t line_index in
   let line_src =
     String.sub t.source ~pos:line_start_index ~len:(idx - line_start_index)
   in
-  Location.create line_index (Column_index.create (String.length line_src))
+  let column = Column_index.create (String.length line_src) in
+  Text.(
+    Location.
+      { line = Line_number.of_index line_index
+      ; column = Column_number.of_index column ~line:line_src
+      })
+;;
+
+let line_number t (idx : Byte_index.t) : Text.Line_number.t =
+  let line_idx = line_index t idx in
+  Text.Line_number.of_index line_idx
+;;
+
+let line_span t (idx : Line_index.t) : Text.Span.t =
+  let open Text in
+  let line_start = line_start t idx in
+  let next_line_start = Line_index.(line_start + 1) in
+  Span.create
+    Location.{ line = Line_number.of_index line_start; column = Column_number.initial }
+    Location.
+      { line = Line_number.of_index next_line_start; column = Column_number.initial }
 ;;
 
 let source t = t.source
-let source_range t = Range.from_string t.source
+let source_range t = Range.of_string t.source
 
 let source_slice t ({ start; stop } : Range.t) =
   String.sub t.source ~pos:start ~len:(stop - start)
@@ -108,8 +127,10 @@ module Cache = struct
   ;;
 
   let line_index t file_id idx = line_index (find t file_id) idx
-  let location t file_id idx = location (find t file_id) idx
   let source t file_id = source (find t file_id)
   let source_range t file_id = source_range (find t file_id)
   let source_slice t file_id range = source_slice (find t file_id) range
+  let location t file_id idx = location (find t file_id) idx
+  let line_number t file_id idx = line_number (find t file_id) idx
+  let line_span t file_id idx = line_span (find t file_id) idx
 end

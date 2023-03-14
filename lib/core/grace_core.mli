@@ -2,7 +2,7 @@ open Core
 
 (** Diagnostics and location associated metadata *)
 
-(** {1 Index types}
+(** {1 Location types}
     
     Index types are wrapper types that specify positions and ranges in a source file. 
 
@@ -38,49 +38,81 @@ end
 
 module Line_index : Index
 module Column_index : Index
-module Byte_index : Index
-
-module type Number = sig
-  type index
-  type t [@@deriving sexp]
-
-  include Comparable.S with type t := t
-
-  val pp : t Fmt.t
-  val ppd : t -> Fmt_doc.t
-  val of_index : index -> t
-end
-
-module Line_number : Number with type index := Line_index.t
-module Column_number : Number with type index := Column_index.t
-
-(** {2 Location Types} *)
-
-module Location : sig
-  type t =
-    { line : Line_index.t
-    ; column : Column_index.t
-    }
-  [@@deriving sexp]
-
-  val pp : t Fmt.t
-  val ppd : t -> Fmt_doc.t
-  val create : Line_index.t -> Column_index.t -> t
+module Byte_index : sig
+  include Index
+  val of_lex : Lexing.position -> t
 end
 
 module Range : sig
-  type t [@@deriving sexp]
+  module type S = sig
+    type pos
+    type t [@@deriving sexp]
 
-  include Comparable.S with type t := t
-  include Invariant.S with type t := t
+    include Comparable.S with type t := t
+    include Invariant.S with type t := t
 
-  val pp : t Fmt.t
-  val ppd : t -> Fmt_doc.t
-  val create : Byte_index.t -> Byte_index.t -> t
-  val initial : t
-  val merge : t -> t -> t
-  val are_disjoint : t -> t -> bool
-  val contains : t -> Byte_index.t -> bool
+    val pp : t Fmt.t
+    val ppd : t -> Fmt_doc.t
+    val create : pos -> pos -> t
+    val initial : t
+    val merge : t -> t -> t
+    val are_disjoint : t -> t -> bool
+    val contains : t -> pos -> bool
+  end
+
+  module Line_index : S with type pos := Line_index.t
+  module Column_index : S with type pos := Column_index.t
+  include S with type pos := Byte_index.t
+  val of_string : string -> t
+  val of_lex : Lexing.position -> Lexing.position -> t
+end
+
+(** {2 Location types for Text}
+    
+    Byte-oritented locations must be given proper handling for utf8 encodings.
+*)
+
+module Text : sig
+  module type Number = sig
+    type t [@@deriving sexp]
+
+    include Comparable.S with type t := t
+  
+    val pp : t Fmt.t
+    val ppd : t -> Fmt_doc.t
+    val to_string : t -> string
+    val initial : t
+  end
+
+  module Line_number : sig
+    include Number
+
+    val of_index : Line_index.t -> t
+  end
+
+  module Column_number : sig
+    include Number
+
+    val of_index : Column_index.t -> line:string -> t
+  end
+
+  module Location : sig
+    type t =
+      { line : Line_number.t
+      ; column : Column_number.t
+      }
+    [@@deriving sexp]
+
+    include Comparable.S with type t := t
+  end
+
+  module Span : sig
+    module type S = Range.S
+
+    module Line_number : S with type pos := Line_number.t
+    module Column_number : S with type pos := Column_number.t
+    include S with type pos := Location.t
+  end
 end
 
 (** {3 Files} *)
@@ -97,7 +129,11 @@ module File : sig
   val line_start : t -> Line_index.t -> Byte_index.t
   val line_range : t -> Line_index.t -> Range.t
   val line_index : t -> Byte_index.t -> Line_index.t
-  val location : t -> Byte_index.t -> Location.t
+
+  (* unicode functions *)
+  val location : t -> Byte_index.t -> Text.Location.t
+  val line_number : t -> Byte_index.t -> Text.Line_number.t
+  val line_span : t -> Line_index.t -> Text.Span.t
   val source : t -> string
   val source_range : t -> Range.t
   val source_slice : t -> Range.t -> string
@@ -113,7 +149,9 @@ module File : sig
     val line_start : t -> Id.t -> Line_index.t -> Byte_index.t
     val line_range : t -> Id.t -> Line_index.t -> Range.t
     val line_index : t -> Id.t -> Byte_index.t -> Line_index.t
-    val location : t -> Id.t -> Byte_index.t -> Location.t
+    val location : t -> Id.t -> Byte_index.t -> Text.Location.t
+    val line_number : t -> Id.t -> Byte_index.t -> Text.Line_number.t
+    val line_span : t -> Id.t -> Line_index.t -> Text.Span.t
     val source : t -> Id.t -> string
     val source_range : t -> Id.t -> Range.t
     val source_slice : t -> Id.t -> Range.t -> string
