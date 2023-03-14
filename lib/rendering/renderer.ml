@@ -60,13 +60,13 @@ end = struct
 
   let multi_top { config } ~severity ~priority =
     Fmt_doc.(
-      with_style (Config.Style.label config.style severity priority)
+      with_style (Config.Style.label config.style priority severity)
       @@ string config.chars.multi_top)
   ;;
 
   let multi_bottom { config } ~severity ~priority =
     Fmt_doc.(
-      with_style (Config.Style.label config.style severity priority)
+      with_style (Config.Style.label config.style priority severity)
       @@ string config.chars.multi_bottom)
   ;;
 
@@ -117,14 +117,11 @@ end = struct
 
   let mark_sp = Fmt_doc.sp
 
-  let render_underline { config } ~severity ~priority mark_kind =
-    let str =
-      match mark_kind with
-      | `Top -> config.chars.multi_top
-      | `Bottom -> config.chars.multi_bottom
-      | `Vertical -> assert false
-    in
-    Fmt_doc.(with_style (Config.Style.label config.style priority severity) @@ string str)
+  let render_underline t ~severity ~priority mark_kind =
+    match mark_kind with
+    | `Top -> multi_top t ~severity ~priority
+    | `Bottom -> multi_bottom t ~severity ~priority
+    | `Vertical -> assert false
   ;;
 
   let render_default_marks t ~marks_width ~severity (marks : Mark.t list) =
@@ -145,26 +142,28 @@ end = struct
     List.range 0 marks_width
     |> List.folding_map ~init:(marks, mark_sp) ~f:(fun (marks, sep) idx ->
            match marks with
-           | [] -> (marks, sep), sep
+           | [] ->
+             (* prints a trailing sep *)
+             (marks, sep), sep
            | { idx = idx'; _ } :: _ when idx < idx' -> (marks, sep), mark_sp
            | { idx = idx'; _ } :: _ when idx > idx' ->
              (* broken invariant: sorted [marks] *)
              assert false
            | { kind; priority; _ } :: marks ->
+             (* [idx = idx'] *)
              ( ( marks
                , if idx = mark_idx
                  then render_underline t ~severity ~priority kind
                  else sep )
              , render_mark_kind t ~severity ~priority kind ))
-    |> Fmt_doc.concat ~sep:mark_sp
+    |> Fmt_doc.(concat ~sep:empty)
   ;;
 
   let render_marks t ~marks_width ~severity marks (line : Source_line.t) =
     match line with
-    | Content _ | Single_label _ | Break ->
-      render_default_marks t ~marks_width ~severity marks
     | Multi_label { mark_idx; _ } ->
       render_multi_label_marks t ~marks_width ~severity ~mark_idx marks
+    | _ -> Fmt_doc.(render_default_marks t ~marks_width ~severity marks ++ sp)
   ;;
 
   let render_single_label t ~severity ({ carets; trailing_label } : Single_label.t) =
@@ -252,6 +251,8 @@ end = struct
     | Content content -> render_content t ~severity content
     | Single_label single_label -> render_single_label t ~severity single_label
     | Multi_label multi_label -> render_multi_label t ~severity multi_label
+    | Caret_pointers caret_pointers -> render_caret_pointers t ~severity caret_pointers
+    | Hanging_label hanging_label -> render_hanging_label t ~severity hanging_label
     | Break -> Fmt_doc.empty
   ;;
 
@@ -274,7 +275,7 @@ end = struct
     Fmt_doc.(render_severity t ~severity ++ string ": " ++ title)
   ;;
 
-  let render_locus ~line_num_width ({ file_name; position } : Locus.t) =
+  let render_locus t ~line_num_width ({ file_name; position } : Locus.t) =
     let locus =
       Fmt_doc.(
         concat
@@ -284,23 +285,33 @@ end = struct
           ; Column_number.ppd position.column
           ])
     in
-    Fmt_doc.(render_outer_gutter ~line_num_width ++ sp ++ locus)
+    Fmt_doc.(render_outer_gutter ~line_num_width ++ sp ++ snippet_start t ++ sp ++ locus)
   ;;
 
-  let render_notes t (notes : Message.t list) =
+  let render_notes t ~line_num_width (notes : Message.t list) =
     List.map notes ~f:(fun message ->
-        Fmt_doc.(note_bullet t ++ sp ++ vbox (Message.ppd message)))
+        Fmt_doc.(
+          render_outer_gutter ~line_num_width
+          ++ sp
+          ++ note_bullet t
+          ++ sp
+          (* [+ 3] due to the two spaces + 1 character for [note_bullet] *)
+          ++ vbox ~indent:(line_num_width + 3) (Message.ppd message)))
     |> Fmt_doc.(concat ~sep:newline)
   ;;
 
   let render_raw_line t ~severity ~line_num_width (raw_line : Raw_line.t) =
     match raw_line with
-    | Locus locus -> render_locus ~line_num_width locus
+    | Locus locus -> render_locus t ~line_num_width locus
     | Title title -> render_title t ~severity title
-    | Notes notes -> render_notes t notes
+    | Notes notes -> render_notes t ~line_num_width notes
   ;;
 
+  let style_renderer { config } = if config.color then `Ansi_tty else `None
+
   let render_line t (line : Line.t) ~severity ~line_num_width ~marks_width =
+    Fmt_doc.set_style_renderer (style_renderer t)
+    @@
     match line with
     | Source { marks; line } ->
       Fmt_doc.(
@@ -309,7 +320,6 @@ end = struct
         ++ render_source_border_left t line
         ++ sp
         ++ render_marks t ~severity ~marks_width marks line
-        ++ sp
         ++ render_source_line t ~severity line)
     | Raw raw_line -> render_raw_line t ~severity ~line_num_width raw_line
   ;;
@@ -343,7 +353,7 @@ let render (type a) (renderer : a t) (self : a) (snippet : Snippet.t) =
   let marks_width = marks_width snippet in
   let line_num_width = line_num_width snippet in
   Fmt_doc.(
-    concat
+    concat ~sep:newline
     @@ List.map snippet.lines ~f:(fun line ->
            Renderer.render_line
              self

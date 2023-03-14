@@ -108,6 +108,7 @@ end
 type t =
   { chars : Chars.t
   ; style : Style.t
+  ; color : bool
   }
 
-let default = { chars = Chars.unicode; style = Style.default }
+let default = { chars = Chars.unicode; style = Style.default; color = true }

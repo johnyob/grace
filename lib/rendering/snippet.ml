@@ -67,8 +67,11 @@ module Source_line = struct
   type t =
     | Content of Content.t
     | Single_label of Single_label.t
+    | Caret_pointers of Caret_pointers.t
+    | Hanging_label of Hanging_label.t
     | Multi_label of Multi_label.t
     | Break
+  [@@deriving sexp]
 end
 
 module Raw_line = struct
@@ -76,6 +79,7 @@ module Raw_line = struct
     | Locus of Locus.t
     | Title of Message.t
     | Notes of Message.t list
+  [@@deriving sexp]
 end
 
 module Line = struct
@@ -85,9 +89,11 @@ module Line = struct
         ; line : Source_line.t
         }
     | Raw of Raw_line.t
+  [@@deriving sexp]
 end
 
 type t =
   { severity : Severity.t
   ; lines : Line.t list
   }
+[@@deriving sexp]

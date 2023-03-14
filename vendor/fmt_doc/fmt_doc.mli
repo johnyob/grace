@@ -23,3 +23,4 @@ val string : string -> t
 val styled : Fmt.style -> t -> t
 val of_pp : 'a Fmt.t -> 'a -> t
 val option : ?none:t -> ('a -> t) -> 'a option -> t
+val set_style_renderer : Fmt.style_renderer -> t -> t

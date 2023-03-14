@@ -76,3 +76,12 @@ let of_pp pp val_ ppf = pp ppf val_
 let option ?(none = empty) some opt ppf =
   Option.value ~default:none (Option.map opt ~f:some) ppf
 ;;
+
+let set_style_renderer r t ppf =
+  let curr_r = Fmt.style_renderer ppf in
+  Fun.protect
+    (fun () ->
+      Fmt.set_style_renderer ppf r;
+      t ppf)
+    ~finally:(fun () -> Fmt.set_style_renderer ppf curr_r)
+;;
