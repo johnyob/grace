@@ -98,13 +98,12 @@ module Rich = struct
       (* 2. Create [marks] *)
       let vert_marks = vert_marks multi_labels in
       let marks =
-        List.map multi_labels ~f:(fun (idx, priority, label) ->
-            let kind =
-              match label with
-              | `Top start when start - 1 <= margin_length -> `Top
-              | _ -> `Vertical
-            in
-            Mark.{ idx; priority; kind })
+        List.filter_map multi_labels ~f:(fun (idx, priority, label) ->
+            match label with
+            | `Top start when start - 1 <= margin_length ->
+              Some Mark.{ idx; priority; kind = `Top }
+            | `Top _ -> None
+            | _ -> Some Mark.{ idx; priority; kind = `Vertical })
       in
       (* 3. Create [Content] snippet *)
       let annotated_source_line =
@@ -202,11 +201,20 @@ module Rich = struct
       in
       (* 6. Create [Multi_label] snippets *)
       let multi_label_snippets =
+        (* Assumes [multi_labels] is sorted by idx. *)
         let marks ~mark_idx ~mark_kind =
-          List.map multi_labels ~f:(fun (idx, priority, _) ->
+          List.filter_map multi_labels ~f:(fun (idx, priority, kind) ->
               if mark_idx = idx
-              then Mark.{ idx; priority; kind = mark_kind }
-              else Mark.{ idx; priority; kind = `Vertical })
+              then Some Mark.{ idx; priority; kind = mark_kind }
+              else (
+                match kind with
+                | `Top _ when mark_idx < idx ->
+                  (* If a `Top mark is yet to be rendered *)
+                  None
+                | `Bottom _ when idx < mark_idx ->
+                  (* If a `Bottom mark has been rendered *)
+                  None
+                | _ -> Some Mark.{ idx; priority; kind = `Vertical }))
         in
         List.filter_map multi_labels ~f:(fun (idx, priority, label) ->
             match label with
@@ -219,13 +227,12 @@ module Rich = struct
                    ; line = Multi_label { mark_idx = idx; priority; kind = `Top start }
                    })
             | `Bottom (stop, label) ->
-              (* TODO: Remove [-1] here (should be in [Rendering]) *)
               Some
                 (Line.Source
                    { marks = marks ~mark_idx:idx ~mark_kind:`Bottom
                    ; line =
                        Multi_label
-                         { mark_idx = idx; priority; kind = `Bottom (stop - 1, label) }
+                         { mark_idx = idx; priority; kind = `Bottom (stop, label) }
                    }))
       in
       (content_snippet :: single_label_snippets)

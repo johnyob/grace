@@ -128,7 +128,9 @@ end = struct
     List.range 0 marks_width
     |> List.folding_map ~init:marks ~f:(fun marks idx ->
            match marks with
-           | [] -> marks, mark_sp
+           | [] -> 
+            (* TODO: Why do we need a trailing space here? *)
+            marks, mark_sp
            | { idx = idx'; _ } :: _ when idx < idx' -> marks, mark_sp
            | { idx = idx'; _ } :: _ when idx > idx' ->
              (* broken invariant: sorted [marks] *)
@@ -145,17 +147,19 @@ end = struct
            | [] ->
              (* prints a trailing sep *)
              (marks, sep), sep
-           | { idx = idx'; _ } :: _ when idx < idx' -> (marks, sep), mark_sp
+           | { idx = idx'; _ } :: _ when idx < idx' ->
+             ( (marks, sep)
+             , (* print a sep for the missing mark + a trailing sep *)
+               Fmt_doc.(sep ++ sep) )
            | { idx = idx'; _ } :: _ when idx > idx' ->
              (* broken invariant: sorted [marks] *)
              assert false
            | { kind; priority; _ } :: marks ->
              (* [idx = idx'] *)
-             ( ( marks
-               , if idx = mark_idx
-                 then render_underline t ~severity ~priority kind
-                 else sep )
-             , render_mark_kind t ~severity ~priority kind ))
+             let sep =
+               if idx = mark_idx then render_underline t ~severity ~priority kind else sep
+             in
+             (marks, sep), Fmt_doc.(render_mark_kind t ~severity ~priority kind ++ sep))
     |> Fmt_doc.(concat ~sep:empty)
   ;;
 
@@ -219,7 +223,9 @@ end = struct
     in
     let underlines =
       Fmt_doc.(
-        repeat underline_length @@ render_underline t ~severity ~priority underline_kind)
+        (* [-1] to account for start/end caret *)
+        repeat (underline_length - 1)
+        @@ render_underline t ~severity ~priority underline_kind)
     in
     let caret =
       match kind with
@@ -342,17 +348,18 @@ let line_num_width (snippet : Snippet.t) =
 
 let marks_width (snippet : Snippet.t) =
   snippet.lines
-  |> List.filter_map ~f:(function
-         | Source { marks; _ } -> Some (List.length marks)
-         | _ -> None)
+  |> List.concat_map ~f:(function
+         | Source { marks; _ } -> List.map marks ~f:(fun mark -> mark.idx)
+         | _ -> [])
   |> List.max_elt ~compare:Int.compare
-  |> Option.value ~default:0
+  |> Option.value_map ~f:(fun max_idx -> max_idx + 1) ~default:0
 ;;
 
 let render (type a) (renderer : a t) (self : a) (snippet : Snippet.t) =
   let module Renderer = (val renderer) in
   let marks_width = marks_width snippet in
   let line_num_width = line_num_width snippet in
+  Fmt.pr "Marks_width: %d\n" marks_width;
   Fmt_doc.(
     concat ~sep:newline
     @@ List.map snippet.lines ~f:(fun line ->
