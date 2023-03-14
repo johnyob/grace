@@ -134,7 +134,7 @@ module Range = struct
 
     let are_disjoint t1 t2 =
       let first, last = if P.compare t1.stop t2.stop < 0 then t1, t2 else t2, t1 in
-      P.compare first.start last.start <= 0
+      P.compare first.stop last.start <= 0
     ;;
 
     let contains { start; stop } elem =
