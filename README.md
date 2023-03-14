@@ -11,10 +11,11 @@ We're still actively working on Grace to support more use cases and improving th
 
 ## Features
 
-- Inline and multiline error messages, with associated priorities 
-- Configurable rendering (styling and character set)
-- Rich and compact error rendering
-- Colored messages (thanks to `Fmt`'s `style`) for ANSI terminals
+- 📐 Inline and multiline error messages with associated priorities 
+- ⚙️ Configurable rendering (styling and character set)
+- 💰 Rich and Compact error rendering
+- 🌈 Colored messages (thanks to `Fmt`'s `style`) for ANSI terminals
+- 💪 Written in OCaml
 
 ### Planned Features
 
@@ -93,7 +94,6 @@ let () =
     Fmt.stdout
     Grace_rendering.(ppd_rich ~config:Config.default ~files diagnostic)
 ;;
-
 ```
 
 
