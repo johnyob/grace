@@ -73,6 +73,8 @@ module Range = struct
     val pp : t Fmt.t
     val ppd : t -> Fmt_doc.t
     val create : pos -> pos -> t
+    val start : t -> pos
+    val stop : t -> pos
     val initial : t
     val merge : t -> t -> t
     val are_disjoint : t -> t -> bool
@@ -110,6 +112,8 @@ module Range = struct
       t
     ;;
 
+    let start t = t.start
+    let stop t = t.stop
     let initial = create P.initial P.initial
 
     let merge t1 t2 =

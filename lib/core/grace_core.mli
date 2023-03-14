@@ -56,6 +56,10 @@ module Range : sig
     val pp : t Fmt.t
     val ppd : t -> Fmt_doc.t
     val create : pos -> pos -> t
+
+    val start : t -> pos
+    val stop : t -> pos
+
     val initial : t
     val merge : t -> t -> t
     val are_disjoint : t -> t -> bool
