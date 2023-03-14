@@ -38,8 +38,10 @@ end
 
 module Line_index : Index
 module Column_index : Index
+
 module Byte_index : sig
   include Index
+
   val of_lex : Lexing.position -> t
 end
 
@@ -63,6 +65,7 @@ module Range : sig
   module Line_index : S with type pos := Line_index.t
   module Column_index : S with type pos := Column_index.t
   include S with type pos := Byte_index.t
+
   val of_string : string -> t
   val of_lex : Lexing.position -> Lexing.position -> t
 end
@@ -74,10 +77,11 @@ end
 
 module Text : sig
   module type Number = sig
-    type t [@@deriving sexp]
+    type t = int [@@deriving hash, sexp]
 
+    include Invariant.S with type t := t
     include Comparable.S with type t := t
-  
+
     val pp : t Fmt.t
     val ppd : t -> Fmt_doc.t
     val to_string : t -> string

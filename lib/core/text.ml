@@ -1,8 +1,9 @@
 open Core
 
 module type Number = sig
-  type t [@@deriving sexp]
+  type t = int [@@deriving hash, sexp]
 
+  include Invariant.S with type t := t
   include Comparable.S with type t := t
 
   val pp : t Fmt.t
@@ -14,6 +15,7 @@ end
 module Int_number = struct
   include Int
 
+  let invariant t = Invariant.invariant [%here] t sexp_of_t (fun () -> assert (t >= 0))
   let ppd = Fmt_doc.of_pp pp
   let initial = 0
 end
