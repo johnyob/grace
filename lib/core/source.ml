@@ -12,6 +12,7 @@ module Location = struct
     Fmt.pf ppf "%a:%a" Line_index.pp line Column_index.pp column
   ;;
 
+  let ppd = Fmt_doc.of_pp pp
   let create line column = { line; column }
 end
 
@@ -40,6 +41,8 @@ module Range = struct
   let pp ppf { start; stop } =
     Fmt.pf ppf "[%a, %a)" Byte_index.pp start Byte_index.pp stop
   ;;
+
+  let ppd = Fmt_doc.of_pp pp
 
   let create start stop =
     let t = { start; stop } in

@@ -18,6 +18,8 @@ module Severity = struct
     | Note -> Fmt.pf ppf "note"
     | Bug -> Fmt.pf ppf "bug"
   ;;
+
+  let ppd = Fmt_doc.of_pp pp
 end
 
 module Priority = struct
@@ -35,12 +37,21 @@ module Priority = struct
     | Primary -> false
     | Secondary -> true
   ;;
+
+  let pp ppf t =
+    match t with
+    | Primary -> Fmt.pf ppf "primary"
+    | Secondary -> Fmt.pf ppf "secondary"
+  ;;
+
+  let ppd = Fmt_doc.of_pp pp
 end
 
 module Message = struct
   type t = Formatter.t -> unit
 
   let pp ppf t = t ppf
+  let ppd = Fmt_doc.of_pp pp
 
   let to_string t =
     t Format.str_formatter;

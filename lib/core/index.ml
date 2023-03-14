@@ -8,6 +8,7 @@ module type Index = sig
 
   val create : int -> t
   val pp : t Fmt.t
+  val ppd : t -> Fmt_doc.t
   val initial : t
   val ( + ) : t -> int -> t
   val ( - ) : t -> int -> t
@@ -23,6 +24,7 @@ module Int_index = struct
 
   let invariant t = Invariant.invariant [%here] t sexp_of_t (fun () -> assert (t >= 0))
   let pp = Fmt.int
+  let ppd = Fmt_doc.int
 
   let create t =
     invariant t;
@@ -55,12 +57,14 @@ module type Number = sig
   include Comparable.S with type t := t
 
   val pp : t Fmt.t
+  val ppd : t -> Fmt_doc.t
   val of_index : index -> t
 end
 
 module Int_number = struct
   include Int
 
+  let ppd = Fmt_doc.of_pp pp
   let of_index t = t + 1
 end
 

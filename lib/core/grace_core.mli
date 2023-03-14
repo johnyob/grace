@@ -24,6 +24,7 @@ module type Index = sig
   val create : int -> t
 
   val pp : t Fmt.t
+  val ppd : t -> Fmt_doc.t
 
   (** [initial] is the initial index, namely [0]. *)
   val initial : t
@@ -46,6 +47,7 @@ module type Number = sig
   include Comparable.S with type t := t
 
   val pp : t Fmt.t
+  val ppd : t -> Fmt_doc.t
   val of_index : index -> t
 end
 
@@ -62,6 +64,7 @@ module Location : sig
   [@@deriving sexp]
 
   val pp : t Fmt.t
+  val ppd : t -> Fmt_doc.t
   val create : Line_index.t -> Column_index.t -> t
 end
 
@@ -72,6 +75,7 @@ module Range : sig
   include Invariant.S with type t := t
 
   val pp : t Fmt.t
+  val ppd : t -> Fmt_doc.t
   val create : Byte_index.t -> Byte_index.t -> t
   val initial : t
   val merge : t -> t -> t
@@ -129,6 +133,7 @@ module Diagnostic : sig
     [@@deriving equal, compare, sexp]
 
     val pp : t Fmt.t
+    val ppd : t -> Fmt_doc.t
   end
 
   module Priority : sig
@@ -137,6 +142,8 @@ module Diagnostic : sig
       | Secondary
     [@@deriving equal, compare, sexp]
 
+    val pp : t Fmt.t
+    val ppd : t -> Fmt_doc.t
     val is_primary : t -> bool
     val is_secondary : t -> bool
   end
@@ -145,6 +152,7 @@ module Diagnostic : sig
     type t = Formatter.t -> unit [@@deriving sexp]
 
     val pp : t Fmt.t
+    val ppd : t -> Fmt_doc.t
   end
 
   module Label : sig
