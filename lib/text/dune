@@ -1,0 +1,6 @@
+(library
+ (name grace_text)
+ (public_name grace.text)
+ (libraries core fmt fmt_doc grace text)
+ (preprocess
+  (pps ppx_jane)))
