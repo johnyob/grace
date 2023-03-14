@@ -57,6 +57,8 @@ module Line = struct
     let last_line_index = last t in
     if Line_index.(initial <= idx && idx < last_line_index)
     then Some (Array.unsafe_get t.line_starts (idx :> int))
+    else if Line_index.(idx = last_line_index)
+    then Some (stop t)
     else None
   ;;
 
