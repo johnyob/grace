@@ -1,5 +1,6 @@
 open Core
 open Source
+module Text = Grace_text
 
 module Id : sig
   type t
@@ -30,20 +31,23 @@ let create name source =
     |> String.to_list
     |> List.filter_mapi ~f:(fun idx c ->
            match c with
-           | '\n' -> Some (Byte_index.create idx)
+           | '\n' -> Some (Byte_index.create (idx + 1))
            | _ -> None)
-    |> Array.of_list
   in
-  { name; source; line_starts }
+  { name; source; line_starts = Array.of_list (0 :: line_starts) }
 ;;
 
 let name t = t.name
+let source t = t.source
+let source_range t = Range.of_string t.source
 let last_line_index t : Line_index.t = Line_index.create (Array.length t.line_starts)
 
 let line_start t (idx : Line_index.t) : Byte_index.t =
   let last_line_index = last_line_index t in
   if Line_index.(initial <= idx && idx < last_line_index)
   then Array.unsafe_get t.line_starts (idx :> int)
+  else if Line_index.(idx = last_line_index)
+  then Range.stop (source_range t)
   else
     raise_s
       [%message
@@ -51,9 +55,15 @@ let line_start t (idx : Line_index.t) : Byte_index.t =
 ;;
 
 let line_range t (idx : Line_index.t) =
-  let line_start = line_start t idx in
-  let next_line_start = Line_index.(line_start + 1) in
-  Range.create line_start next_line_start
+  let curr_line_start = line_start t idx in
+  let next_line_start = line_start t Line_index.(idx + 1) in
+  Range.create curr_line_start next_line_start
+;;
+
+let line_column_range t (idx : Line_index.t) =
+  let curr_line_start = line_start t idx in
+  let next_line_start = line_start t Line_index.(idx + 1) in
+  Range.Column_index.create Column_index.initial (next_line_start - curr_line_start)
 ;;
 
 let line_index t (idx : Byte_index.t) : Line_index.t =
@@ -62,7 +72,7 @@ let line_index t (idx : Byte_index.t) : Line_index.t =
     ~length:Array.length
     ~get:Array.get
     ~compare:Byte_index.compare
-    `First_greater_than_or_equal_to
+    `Last_less_than_or_equal_to
     idx
   |> Option.value_exn
        ~here:[%here]
@@ -98,11 +108,19 @@ let line_span t (idx : Line_index.t) : Text.Span.t =
       { line = Line_number.of_index next_line_start; column = Column_number.initial }
 ;;
 
-let source t = t.source
-let source_range t = Range.of_string t.source
-
 let source_slice t ({ start; stop } : Range.t) =
   String.sub t.source ~pos:start ~len:(stop - start)
+;;
+
+let source_span t ({ start; stop } : Range.t) =
+  let start = location t start in
+  let stop = location t stop in
+  Text.Span.create start stop
+;;
+
+let source_line t (idx : Byte_index.t) : string =
+  let range = line_range t (line_index t idx) in
+  source_slice t range
 ;;
 
 module Cache = struct
@@ -133,4 +151,8 @@ module Cache = struct
   let location t file_id idx = location (find t file_id) idx
   let line_number t file_id idx = line_number (find t file_id) idx
   let line_span t file_id idx = line_span (find t file_id) idx
+  let source_span t file_id range = source_span (find t file_id) range
+  let source_line t file_id idx = source_line (find t file_id) idx
+  let line_column_range t file_id idx = line_column_range (find t file_id) idx
+  let last_line_index t file_id = last_line_index (find t file_id)
 end

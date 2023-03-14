@@ -1,6 +1,6 @@
 (library
  (name grace)
  (public_name grace)
- (libraries core fmt fmt_doc)
+ (libraries core fmt fmt_doc text)
  (preprocess
   (pps ppx_jane)))

@@ -56,10 +56,8 @@ module Range : sig
     val pp : t Fmt.t
     val ppd : t -> Fmt_doc.t
     val create : pos -> pos -> t
-
     val start : t -> pos
     val stop : t -> pos
-
     val initial : t
     val merge : t -> t -> t
     val are_disjoint : t -> t -> bool
@@ -80,6 +78,10 @@ end
 *)
 
 module Text : sig
+  include module type of Text
+
+  type text := t
+
   module type Number = sig
     type t = int [@@deriving hash, sexp]
 
@@ -101,7 +103,7 @@ module Text : sig
   module Column_number : sig
     include Number
 
-    val of_index : Column_index.t -> line:string -> t
+    val of_index : Column_index.t -> line:text -> t
   end
 
   module Location : sig
@@ -117,8 +119,18 @@ module Text : sig
   module Span : sig
     module type S = Range.S
 
-    module Line_number : S with type pos := Line_number.t
-    module Column_number : S with type pos := Column_number.t
+    module Line_number : sig
+      include S with type pos := Line_number.t
+
+      val of_range : Range.Line_index.t -> t
+    end
+
+    module Column_number : sig
+      include S with type pos := Column_number.t
+
+      val of_range : Range.Column_index.t -> line:string -> t
+    end
+
     include S with type pos := Location.t
   end
 end
@@ -137,6 +149,7 @@ module File : sig
   val line_start : t -> Line_index.t -> Byte_index.t
   val line_range : t -> Line_index.t -> Range.t
   val line_index : t -> Byte_index.t -> Line_index.t
+  val last_line_index : t -> Line_index.t
 
   (* unicode functions *)
   val location : t -> Byte_index.t -> Text.Location.t
@@ -145,6 +158,8 @@ module File : sig
   val source : t -> string
   val source_range : t -> Range.t
   val source_slice : t -> Range.t -> string
+  val source_span : t -> Range.t -> Text.Span.t
+  val source_line : t -> Byte_index.t -> string
 
   module Cache : sig
     type file := t
@@ -156,13 +171,17 @@ module File : sig
     val name : t -> Id.t -> string
     val line_start : t -> Id.t -> Line_index.t -> Byte_index.t
     val line_range : t -> Id.t -> Line_index.t -> Range.t
+    val line_column_range : t -> Id.t -> Line_index.t -> Range.Column_index.t
     val line_index : t -> Id.t -> Byte_index.t -> Line_index.t
+    val last_line_index : t -> Id.t -> Line_index.t
     val location : t -> Id.t -> Byte_index.t -> Text.Location.t
     val line_number : t -> Id.t -> Byte_index.t -> Text.Line_number.t
     val line_span : t -> Id.t -> Line_index.t -> Text.Span.t
     val source : t -> Id.t -> string
     val source_range : t -> Id.t -> Range.t
     val source_slice : t -> Id.t -> Range.t -> string
+    val source_span : t -> Id.t -> Range.t -> Text.Span.t
+    val source_line : t -> Id.t -> Byte_index.t -> string
   end
 end
 

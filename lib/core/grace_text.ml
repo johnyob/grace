@@ -1,4 +1,5 @@
 open Core
+include Text
 
 module type Number = sig
   type t = int [@@deriving hash, sexp]
@@ -63,7 +64,23 @@ module Span = struct
 
   module type S = Range.S
 
-  module Line_number = Range.Make (Line_number)
-  module Column_number = Range.Make (Column_number)
+  module Line_number = struct
+    include Range.Make (Line_number)
+
+    let of_range ({ start; stop } : Range.Line_index.t) =
+      { start = Line_number.of_index start; stop = Line_number.of_index stop }
+    ;;
+  end
+
+  module Column_number = struct
+    include Range.Make (Column_number)
+
+    let of_range ({ start; stop } : Range.Column_index.t) ~line =
+      { start = Column_number.of_index start ~line
+      ; stop = Column_number.of_index stop ~line
+      }
+    ;;
+  end
+
   include Range.Make (Location)
 end
