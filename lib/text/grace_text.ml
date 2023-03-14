@@ -19,7 +19,7 @@ module Int_number = struct
 
   let invariant t = Invariant.invariant [%here] t sexp_of_t (fun () -> assert (t >= 0))
   let ppd = Fmt_doc.of_pp pp
-  let initial = 0
+  let initial = 1
 end
 
 module Line_number = struct
