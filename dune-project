@@ -15,3 +15,7 @@
  (synopsis
   "A fancy diagnostics library that allows your compilers to exit with grace")
  (depends dune core ppx_jane fmt))
+
+(package
+ (name fmt_doc)
+ (depends dune core ppx_jane fmt))
