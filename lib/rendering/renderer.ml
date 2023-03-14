@@ -295,8 +295,9 @@ end = struct
           ++ sp
           ++ note_bullet t
           ++ sp
+          (* TODO: Support multiline notes *)
           (* [+ 3] due to the two spaces + 1 character for [note_bullet] *)
-          ++ vbox ~indent:(line_num_width + 3) (Message.ppd message)))
+          ++ Message.ppd message))
     |> Fmt_doc.(concat ~sep:newline)
   ;;
 

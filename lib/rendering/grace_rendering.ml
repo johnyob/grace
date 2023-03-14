@@ -53,7 +53,7 @@ let fizz_diagnostic : Files.t * Diagnostic.t =
           ; Label.secondary ~id ~range:(range 178 184) (fun ppf ->
                 Fmt.pf ppf "expected type `String` found here")
           ]
-      ; notes = [ (fun ppf -> Fmt.pf ppf "expected type `String`\nfound type `Nat`") ]
+      ; notes = [ (fun ppf -> Fmt.pf ppf "expected type `String`, found type `Nat`") ]
       } )
 ;;
 
