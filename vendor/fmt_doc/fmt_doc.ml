@@ -2,6 +2,7 @@ open Core
 
 type t = Format.formatter -> unit
 
+let render ppf t = t ppf
 let empty _ppf = ()
 
 let repeat n t ppf =
@@ -11,7 +12,7 @@ let repeat n t ppf =
 ;;
 
 let newline ppf = Fmt.pf ppf "\n"
-let sp ppf = Fmt.sp ppf ()
+let sp ppf = Fmt.pf ppf " "
 let cut ppf = Fmt.cut ppf ()
 let comma ppf = Fmt.comma ppf ()
 let semi ppf = Fmt.semi ppf ()
@@ -26,8 +27,8 @@ let ( ++ ) = append
 let concat ?(sep = cut) ts ppf =
   let is_first = ref true in
   List.iter ts ~f:(fun t ->
-    if !is_first then is_first := false else sep ppf;
-    t ppf)
+      if !is_first then is_first := false else sep ppf;
+      t ppf)
 ;;
 
 let box ?(indent = 0) t ppf =

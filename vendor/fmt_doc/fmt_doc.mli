@@ -1,5 +1,6 @@
 type t
 
+val render : Format.formatter -> t -> unit
 val empty : t
 val repeat : int -> t -> t
 val newline : t
