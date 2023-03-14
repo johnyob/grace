@@ -1,6 +1,5 @@
 open Core
 open Source
-module Text = Grace_text
 
 module Id : sig
   type t
@@ -27,132 +26,116 @@ type t =
 
 let create name source =
   let line_starts =
-    source
-    |> String.to_list
-    |> List.filter_mapi ~f:(fun idx c ->
-           match c with
-           | '\n' -> Some (Byte_index.create (idx + 1))
-           | _ -> None)
+    (* Prefix with zero since no preceeding newline *)
+    0
+    :: (source
+       |> String.to_list
+       |> List.filter_mapi ~f:(fun idx c ->
+              match c with
+              | '\n' -> Some (Byte_index.create (idx + 1))
+              | _ -> None))
   in
-  { name; source; line_starts = Array.of_list (0 :: line_starts) }
+  { name; source; line_starts = Array.of_list line_starts }
 ;;
 
 let name t = t.name
 let source t = t.source
-let source_range t = Range.of_string t.source
-let last_line_index t : Line_index.t = Line_index.create (Array.length t.line_starts)
+let stop t = String.length t.source
 
-let line_start t (idx : Line_index.t) : Byte_index.t =
-  let last_line_index = last_line_index t in
-  if Line_index.(initial <= idx && idx < last_line_index)
-  then Array.unsafe_get t.line_starts (idx :> int)
-  else if Line_index.(idx = last_line_index)
-  then Range.stop (source_range t)
-  else
-    raise_s
-      [%message
-        "Line index out of bounds" (idx : Line_index.t) (last_line_index : Line_index.t)]
-;;
+module Source = struct
+  let range t = Range.create Byte_index.initial (stop t)
 
-let line_range t (idx : Line_index.t) =
-  let curr_line_start = line_start t idx in
-  let next_line_start = line_start t Line_index.(idx + 1) in
-  Range.create curr_line_start next_line_start
-;;
+  let slice t ({ start; stop } : Range.t) =
+    String.sub t.source ~pos:start ~len:(stop - start)
+  ;;
+end
 
-let line_column_range t (idx : Line_index.t) =
-  let curr_line_start = line_start t idx in
-  let next_line_start = line_start t Line_index.(idx + 1) in
-  Range.Column_index.create Column_index.initial (next_line_start - curr_line_start)
-;;
+module Line = struct
+  let last t : Line_index.t = Line_index.create (Array.length t.line_starts)
 
-let line_index t (idx : Byte_index.t) : Line_index.t =
-  Binary_search.binary_search
-    t.line_starts
-    ~length:Array.length
-    ~get:Array.get
-    ~compare:Byte_index.compare
-    `Last_less_than_or_equal_to
-    idx
-  |> Option.value_exn
-       ~here:[%here]
-       ~error:(Error.create_s [%message "Byte index out of bounds" (idx : Byte_index.t)])
-;;
-
-let location t (idx : Byte_index.t) : Text.Location.t =
-  let line_index = line_index t idx in
-  let line_start_index = line_start t line_index in
-  let line_src =
-    String.sub t.source ~pos:line_start_index ~len:(idx - line_start_index)
-  in
-  let column = Column_index.create (String.length line_src) in
-  Text.(
-    Location.
-      { line = Line_number.of_index line_index
-      ; column = Column_number.of_index column ~line:line_src
-      })
-;;
-
-let line_number t (idx : Byte_index.t) : Text.Line_number.t =
-  let line_idx = line_index t idx in
-  Text.Line_number.of_index line_idx
-;;
-
-let line_span t (idx : Line_index.t) : Text.Span.t =
-  let open Text in
-  let line_start = line_start t idx in
-  let next_line_start = Line_index.(line_start + 1) in
-  Span.create
-    Location.{ line = Line_number.of_index line_start; column = Column_number.initial }
-    Location.
-      { line = Line_number.of_index next_line_start; column = Column_number.initial }
-;;
-
-let source_slice t ({ start; stop } : Range.t) =
-  String.sub t.source ~pos:start ~len:(stop - start)
-;;
-
-let source_span t ({ start; stop } : Range.t) =
-  let start = location t start in
-  let stop = location t stop in
-  Text.Span.create start stop
-;;
-
-let source_line t (idx : Byte_index.t) : string =
-  let range = line_range t (line_index t idx) in
-  source_slice t range
-;;
-
-module Cache = struct
-  let create_file = create
-
-  type nonrec t = (Id.t, t) Hashtbl.t
-
-  let create () = Hashtbl.create (module Id)
-
-  let add t name source =
-    let file_id = Id.create () in
-    Hashtbl.set t ~key:file_id ~data:(create_file name source);
-    file_id
+  let start t (idx : Line_index.t) : Byte_index.t option =
+    let last_line_index = last t in
+    if Line_index.(initial <= idx && idx < last_line_index)
+    then Some (Array.unsafe_get t.line_starts (idx :> int))
+    else None
   ;;
 
-  let find t file_id = Hashtbl.find_exn t file_id
-  let name t file_id = (find t file_id).name
-  let line_start t file_id idx = line_start (find t file_id) idx
-
-  let line_range t file_id (idx : Line_index.t) : Range.t =
-    line_range (find t file_id) idx
+  let range t (idx : Line_index.t) : Range.t option =
+    let open Option.Let_syntax in
+    let%map curr_line_start = start t idx
+    and next_line_start = start t Line_index.(idx + 1) in
+    Range.create curr_line_start next_line_start
   ;;
 
-  let line_index t file_id idx = line_index (find t file_id) idx
-  let source t file_id = source (find t file_id)
-  let source_range t file_id = source_range (find t file_id)
-  let source_slice t file_id range = source_slice (find t file_id) range
-  let location t file_id idx = location (find t file_id) idx
-  let line_number t file_id idx = line_number (find t file_id) idx
-  let line_span t file_id idx = line_span (find t file_id) idx
-  let source_span t file_id range = source_span (find t file_id) range
-  let source_line t file_id idx = source_line (find t file_id) idx
-  let line_column_range t file_id idx = line_column_range (find t file_id) idx
-  let last_line_index t file_id = last_line_index (find t file_id)
+  let index t (idx : Byte_index.t) : Line_index.t =
+    Binary_search.binary_search
+      t.line_starts
+      ~length:Array.length
+      ~get:Array.get
+      ~compare:Byte_index.compare
+      `Last_less_than_or_equal_to
+      idx
+    |> Option.value_exn ~here:[%here]
+  ;;
+
+  let slice t idx = Option.(range t idx >>| Source.slice t)
+end
+
+module Line_range = struct
+  type t =
+    { line : Line_index.t
+    ; range : Range.Column_index.t
+    }
+  [@@deriving sexp]
+
+  let start file range =
+    let start, stop = Range.(start range, stop range) in
+    let line = Line.index file start in
+    (* [Line.index] always returns a valid index into [file.line_starts] *)
+    let line_start = Array.unsafe_get file.line_starts line in
+    let next_line_start = Line.start file Line_index.(line + 1) in
+    { line
+    ; range =
+        Range.Column_index.create
+          (start - line_start)
+          (Option.value next_line_start ~default:stop - line_start)
+    }
+  ;;
+
+  let next file range curr =
+    let next_line = Line_index.(curr.line + 1) in
+    match Line.start file next_line with
+    | None -> None
+    | Some next_line_start ->
+      if Range.contains range next_line_start
+      then (
+        let start = file.line_starts.(curr.line) + Range.Column_index.(stop curr.range) in
+        let stop = Range.stop range in
+        let next_next_line_start = Line.start file Line_index.(next_line + 1) in
+        Some
+          { line = next_line
+          ; range =
+              Range.Column_index.create
+                (start - next_line_start)
+                (Option.value next_next_line_start ~default:stop - next_line_start)
+          })
+      else None
+  ;;
+
+  let slice file { line; range } =
+    let line_start = file.line_starts.(line) in
+    let start, stop = Range.Column_index.(start range, stop range) in
+    Source.slice file (Range.create (line_start + start) (line_start + stop))
+  ;;
+
+  let all file range =
+    let init = start file range in
+    let rec loop curr all =
+      let next = next file range curr in
+      match next with
+      | None -> List.rev all
+      | Some next -> loop next (curr :: all)
+    in
+    loop init []
+  ;;
 end

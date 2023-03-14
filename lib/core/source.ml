@@ -12,6 +12,7 @@ module type Index = sig
   val initial : t
   val ( + ) : t -> int -> t
   val ( - ) : t -> int -> t
+  val ( -. ) : t -> t -> int
 end
 
 module Int_index = struct
@@ -44,6 +45,8 @@ module Int_index = struct
     invariant t;
     t
   ;;
+
+  let ( -. ) t1 t2 = t1 - t2
 end
 
 module Line_index = Int_index
@@ -56,15 +59,15 @@ module Byte_index = struct
 end
 
 module Range = struct
-  module type Pos = sig
-    type t [@@deriving compare, sexp]
+  module type Position = sig
+    type t [@@deriving sexp, compare]
 
-    val initial : t
     val pp : t Fmt.t
+    val initial : t
   end
 
   module type S = sig
-    type pos
+    type position
     type t [@@deriving sexp]
 
     include Comparable.S with type t := t
@@ -72,16 +75,17 @@ module Range = struct
 
     val pp : t Fmt.t
     val ppd : t -> Fmt_doc.t
-    val create : pos -> pos -> t
-    val start : t -> pos
-    val stop : t -> pos
+    val create : position -> position -> t
+    val start : t -> position
+    val stop : t -> position
     val initial : t
     val merge : t -> t -> t
+    val inter : t -> t -> t
     val are_disjoint : t -> t -> bool
-    val contains : t -> pos -> bool
+    val contains : t -> position -> bool
   end
 
-  module Make (P : Pos) = struct
+  module Make (P : Position) = struct
     module T = struct
       type t =
         { start : P.t
@@ -119,6 +123,12 @@ module Range = struct
     let merge t1 t2 =
       let start = Comparable.min P.compare t1.start t2.start in
       let stop = Comparable.max P.compare t1.stop t2.stop in
+      { start; stop }
+    ;;
+
+    let inter t1 t2 =
+      let start = Comparable.max P.compare t1.start t2.start in
+      let stop = Comparable.min P.compare t1.stop t2.stop in
       { start; stop }
     ;;
 

@@ -1,4 +1,4 @@
 include Source
-module Text = Grace_text
 module File = File
+module Files = Files
 module Diagnostic = Diagnostic
