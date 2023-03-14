@@ -113,7 +113,7 @@ module Gutter = struct
   let ppd ~(ctx : Ctx.t) ~priority t =
     let str =
       match t with
-      | `Top -> ctx.config.chars.multi_top
+      | `Top -> ctx.config.chars.multi_top_left
       | `Verticle -> ctx.config.chars.multi_left
       | `Bottom -> ctx.config.chars.multi_bottom_left
     in
@@ -131,7 +131,9 @@ module Vert_gutters = struct
         ~sep:Ctx.gutter_sep
         (List.map
            vert_gutters
-           ~f:(option (fun priority -> Gutter.ppd ~ctx ~priority `Verticle))))
+           ~f:
+             (option ~none:Ctx.gutter_sep (fun priority ->
+                  Gutter.ppd ~ctx ~priority `Verticle))))
   ;;
 end
 
@@ -166,7 +168,7 @@ module Single_label = struct
 
   let ppd ~ctx { gutters; column_span; carets; trailing_label; hanging_labels } =
     let module Column_span = Span.Column_number in
-    let prefix =
+    let caret_prefix =
       Fmt_doc.(
         Ctx.ppd_outer_gutter ctx
         ++ sp
@@ -175,10 +177,20 @@ module Single_label = struct
         ++ Gutters.ppd ~ctx gutters
         ++ sp)
     in
+    let prefix =
+      Fmt_doc.(
+        Ctx.ppd_outer_gutter ctx
+        ++ sp
+        ++ Ctx.ppd_source_border_left ctx
+        ++ sp
+        ++ Gutters.ppd ~ctx gutters
+        ++ sp
+        ++ repeat (Column_span.start column_span - 1) sp)
+    in
     let trailing_label =
       Fmt_doc.(
         option
-          (fun (priority, _, label) -> Ctx.ppd_label ctx priority label)
+          (fun (priority, _, label) -> sp ++ Ctx.ppd_label ctx priority label)
           trailing_label)
     in
     let carets =
@@ -203,7 +215,7 @@ module Single_label = struct
                match priority with
                | Some priority -> Ctx.ppd_pointer_left ctx priority
                | None -> sp))
-      |> Fmt_doc.concat
+      |> Fmt_doc.(concat ~sep:empty)
     in
     let hangling_labels =
       hanging_labels
@@ -217,13 +229,17 @@ module Single_label = struct
       |> Fmt_doc.(concat ~sep:newline)
     in
     Fmt_doc.(
-      prefix
+      caret_prefix
       ++ carets
       ++ trailing_label
-      ++ newline
-      ++ caret_pointers ~stop:(Column_span.stop column_span + 1)
-      ++ newline
-      ++ hangling_labels)
+      ++
+      if not (List.is_empty hanging_labels)
+      then
+        newline
+        ++ caret_pointers ~stop:(Column_span.stop column_span + 1)
+        ++ newline
+        ++ hangling_labels
+      else empty)
   ;;
 end
 
@@ -316,19 +332,16 @@ end
 
 module Source_line = struct
   module Gutters = struct
-    type t =
-      { rightmost_gutter : ([ `Top | `Bottom ] * Priority.t) option
-      ; vert_gutters : Vert_gutters.t
-      }
-    [@@deriving sexp]
+    type t = (Gutter.t * Priority.t) option list [@@deriving sexp]
 
-    let ppd ~ctx { vert_gutters; rightmost_gutter } =
+    let ppd ~ctx gutters =
       Fmt_doc.(
-        Vert_gutters.ppd ~ctx vert_gutters
-        ++ option
-             (fun (gutter, priority) ->
-               Ctx.gutter_sep ++ Gutter.ppd ~ctx ~priority gutter)
-             rightmost_gutter)
+        concat ~sep:Ctx.gutter_sep
+        @@ List.map
+             gutters
+             ~f:
+               (option ~none:Ctx.gutter_sep (fun (gutter, priority) ->
+                    Gutter.ppd ~ctx ~priority gutter)))
     ;;
   end
 
@@ -408,6 +421,7 @@ module File = struct
     in
     Fmt_doc.(
       Ctx.ppd_outer_gutter ctx
+      ++ sp
       ++ Ctx.ppd_snippet_start ctx
       ++ sp
       ++ Locus.ppd locus
