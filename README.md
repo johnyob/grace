@@ -1,92 +1,111 @@
-# Grace
+# Grace 💅
+> A fancy diagnostics library that allows your compilers to exit with *grace*
 
+Grace is an OCaml 🐪 library that includes a series of interfaces for building, reporting, and rendering beautiful compiler errors 📜. 
 
+<center>
+    <img src="./assets/readme_example.png" width="80%">
+</center>
 
-## Getting started
+We're still actively working on Grace to support more use cases and improving the quality of the rendering engine. Contributions are very welcome!
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Features
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- Inline and multiline error messages, with associated priorities 
+- Configurable rendering (styling and character set)
+- Rich and compact error rendering
+- Colored messages (thanks to `Fmt`'s `style`) for ANSI terminals
 
-## Add your files
+### Planned Features
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/alistair.obrien/grace.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/alistair.obrien/grace/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- [ ] Error codes
+- [ ] LSP integration
+- [ ] Multi-file errors
+- [ ] Accessibility features (improves color options, screen reader/braille support)
+- [ ] Improved layout rendering for labels
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+
+This library has not yet been released to `opam`. To install, first
+
+```sh
+opam pin add --yes https://gitlab.com/alistair.obrien/grace.git
+opam install grace
+```
+Users of `dune` can then use this library by adding the appropriate libraries:
+```
+(library
+ ...
+ (libraries grace grace.rendering grace.lsp ...))
+```
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```ocaml
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+let source =
+  {|
+let fizz n = 
+  match n mod 5, n mod 3 with
+  | 0, 0 -> `Fizz_buzz
+  | 0, _ -> `Fizz
+  | _, 0 -> `Buzz
+  | _, _ -> n
+;;
+|}
+;;
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+(* Grace provides a Files API for in-memory representations of 
+   files. *)
+let files = Files.create ()
+let fizz = Files.add files "fizz.ml" source
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+(* Normally locations (ranges) would be taken from AST nodes, but for 
+   sake of this example we construct them directly. *)
+let diagnostic : Diagnostic.t =
+  let range start stop =
+    Range.create (Byte_index.create start) (Byte_index.create stop)
+  in
+  Diagnostic.
+    { severity = Error
+    ; message = (fun ppf -> Fmt.pf ppf "`match` cases have incompatible types")
+    ; labels =
+        [ Label.primary ~id:fizz ~range:(range 116 117) (fun ppf ->
+              Fmt.pf ppf "expected `[> `Buzz | `Fizz | `Fizz_buzz]`, found `int`")
+        ; Label.secondary ~id:fizz ~range:(range 17 117) (fun ppf ->
+              Fmt.pf ppf "`match` cases have incompatible types")
+        ; Label.secondary ~id:fizz ~range:(range 57 67) (fun ppf ->
+              Fmt.pf ppf "this is found to be of type `[> `Fizz_buzz]`")
+        ; Label.secondary ~id:fizz ~range:(range 80 85) (fun ppf ->
+              Fmt.pf ppf "this is found to be of type `[> `Fizz]`")
+        ; Label.secondary ~id:fizz ~range:(range 98 103) (fun ppf ->
+              Fmt.pf ppf "this is found to be of type `[> `Buzz]`")
+        ]
+    ; notes = []
+    }
+;;
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+(* We now render the rich version of the diagnostic to [stdout] using the 
+   default config (colors + unicode) 
+*)
+let () =
+  Fmt_doc.render
+    Fmt.stdout
+    Grace_rendering.(ppd_rich ~config:Config.default ~files diagnostic)
+;;
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```
+
+
+## Authors and Acknowledgement
+
+Authors:
+- Alistair O'Brien (`@alistair.obrien`) (`@johnyob`)
+
+`grace` was heavily inspired by all the work on compiler diagnostics in the Rust ecosystem:
+ - `@brendanzab` for the `codespan` crate which *heavily* influenced the design of `grace`'s rendering engine.
+ - `ariadne` (`@zesterer`) for pushing the boundary on diagnostic rendering.  
+ - `rustc` and `@estebank`'s work on the state-of-the-art work on compiler diagnostics
 
 ## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+This code is free, under the MIT license.
