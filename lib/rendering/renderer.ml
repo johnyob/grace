@@ -345,6 +345,7 @@ end = struct
     | Locus locus -> render_locus t ~line_num_width locus
     | Title { locus; title } -> render_title t ~severity locus title
     | Notes notes -> render_notes t ~line_num_width notes
+    | Empty -> Fmt_doc.empty
   ;;
 
   let style_renderer { config } = if config.color then `Ansi_tty else `None

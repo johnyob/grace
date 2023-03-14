@@ -103,7 +103,14 @@ module Rich = struct
               | `Vertical -> `Vertical ))
       in
       (* 2. Create [marks] *)
-      let vert_marks = vert_marks multi_labels in
+      let vert_marks =
+        List.filter_map multi_labels ~f:(fun (idx, priority, label) ->
+            match label with
+            | `Top start when start - 1 <= margin_length ->
+              Some Mark.{ idx; priority; kind = `Vertical }
+            | `Top _ -> None
+            | _ -> Some Mark.{ idx; priority; kind = `Vertical })
+      in
       let marks =
         List.filter_map multi_labels ~f:(fun (idx, priority, label) ->
             match label with
@@ -191,13 +198,18 @@ module Rich = struct
           (* 3. Create [Hanging_label]s *)
           let add_caret_pointer pointer hanging_labels =
             List.map hanging_labels ~f:(fun hanging_label ->
-                Hanging_label.
-                  { hanging_label with pointers = pointer :: hanging_label.pointers })
+                let pointer_start = Column_span.start (fst pointer) in
+                if pointer_start < hanging_label.Hanging_label.label_start
+                then
+                  Hanging_label.
+                    { hanging_label with pointers = pointer :: hanging_label.pointers }
+                else hanging_label)
           in
           let hanging_labels =
             hanging_labels
             |> List.fold_right ~init:[] ~f:(fun (span, label) hanging_labels ->
-                   Hanging_label.{ pointers = []; label_start = Column_span.start span; label }
+                   Hanging_label.
+                     { pointers = []; label_start = Column_span.start span; label }
                    :: add_caret_pointer (span, label.priority) hanging_labels)
             |> List.map ~f:(fun hanging_label ->
                    Line.Source { marks = vert_marks; line = Hanging_label hanging_label })

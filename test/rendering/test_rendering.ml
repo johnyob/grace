@@ -220,7 +220,7 @@ fn main() {
         ; message = Fmt.fmt "`std::rc::Rc<()>` cannot be sent between threads safely"
         ; labels =
             Label.
-              [ primary ~id:file_id4 ~range:(range 339 352)
+              [ primary ~id:file_id4 ~range:(range 343 356)
                 @@ Fmt.fmt "`std::rc::Rc<()> cannot be sent between threads safely`"
               ; secondary ~id:file_id4 ~range:(range 357 420)
                 @@ Fmt.fmt
@@ -269,7 +269,7 @@ fn main() {
       1 │  fn fn_test1() -> _ { 5 }
         │                   ^
         │                   │
-        │                   │help: replace with the correct return type: `i32`
+        │                   help: replace with the correct return type: `i32`
         │                   not allowed in type signatures
 
     error: the type placeholder `_` is not allowed within types on item signatures
@@ -285,10 +285,10 @@ fn main() {
         ┌─ libstd/thread/mod.rs:5:8
       5 │       F: Send + 'static,
         │          ---- required by this bound in `std::thread::spawn`
-        ┌─ no_send_res_ports.rs:25:1
+        ┌─ no_send_res_ports.rs:25:5
      24 │
      25 │       thread::spawn(move|| {
-        │ │ ^^^^^^^^^^^^^ `std::rc::Rc<()> cannot be sent between threads safely`
+        │       ^^^^^^^^^^^^^ `std::rc::Rc<()> cannot be sent between threads safely`
         │ ╭───────────────────'
      26 │ │         let y = x;
      27 │ │         println!("{:?}", y);
@@ -305,7 +305,166 @@ fn main() {
 ;;
 
 (* observations:
-    ordering of overlapping labels is strange (probably due to some of the sorting we do)    
-    we add extra caret pointers for hanging labels in the same position. 
-    mutlilabel top "│"
+    ordering of overlapping labels is strange (probably due to some of the sorting we do)     
+*)
+
+let%expect_test "empty ranges" =
+  let files = Files.create () in
+  let file_id = Files.add files "hello" "Hello world!\nBye world!\n   " in
+  let eof = Range.stop @@ Files.Source.range files file_id in
+  let diagnostics =
+    Diagnostic.
+      [ { severity = Note
+        ; message = Fmt.fmt "middle"
+        ; labels = Label.[ primary ~id:file_id ~range:(range 6 6) @@ Fmt.fmt "middle" ]
+        ; notes = []
+        }
+      ; { severity = Note
+        ; message = Fmt.fmt "end of line"
+        ; labels =
+            Label.[ primary ~id:file_id ~range:(range 12 12) @@ Fmt.fmt "end of line" ]
+        ; notes = []
+        }
+      ; { severity = Note
+        ; message = Fmt.fmt "end of line"
+        ; labels =
+            Label.[ primary ~id:file_id ~range:(range 23 23) @@ Fmt.fmt "end of line" ]
+        ; notes = []
+        }
+      ; { severity = Note
+        ; message = Fmt.fmt "end of line"
+        ; labels =
+            Label.
+              [ primary ~id:file_id ~range:(Range.create eof eof) @@ Fmt.fmt "end of line"
+              ]
+        ; notes = []
+        }
+      ]
+  in
+  print_rich_diagnostics ~files diagnostics;
+  [%expect
+    {|
+    note: middle
+        ┌─ hello:1:7
+      1 │  Hello world!
+        │        ^ middle
+
+    note: end of line
+        ┌─ hello:1:13
+      1 │  Hello world!
+        │   end of line
+
+    note: end of line
+        ┌─ hello:2:11
+      2 │  Bye world!
+        │   end of line
+
+    note: end of line
+        ┌─ hello:3:4
+      3 │
+        │   end of line |}]
+;;
+
+(* 
+  observation: we don't trailing position on \n correctly   
+*)
+
+let%expect_test "same ranges" =
+  let files = Files.create () in
+  let id = Files.add files "same_range" "::S { }" in
+  let diagnostics =
+    Diagnostic.
+      [ { severity = Error
+        ; message = Fmt.fmt "unexpected token"
+        ; notes = []
+        ; labels =
+            Label.
+              [ primary ~id ~range:(range 4 4) @@ Fmt.fmt "Unexpected '{'"
+              ; secondary ~id ~range:(range 4 4) @@ Fmt.fmt "Expected '('"
+              ]
+        }
+      ]
+  in
+  print_rich_diagnostics ~files diagnostics;
+  [%expect
+    {|
+    error: unexpected token
+        ┌─ same_range:1:5
+      1 │  ::S { }
+        │      ^
+        │      │
+        │      Expected '('
+        │      Unexpected '{' |}]
+;;
+
+(* observation: flipped order of labels in same position. Probably a fold / sort *)
+
+let%expect_test "multiline_overlapping" =
+  let files = Files.create () in
+  let id =
+    Files.add
+      files
+      "file.rs"
+      ([ "        match line_index.compare(self.last_line_index()) {"
+       ; "            Ordering::Less => Ok(self.line_starts()[line_index.to_usize()]),"
+       ; "            Ordering::Equal => Ok(self.source_span().end()),"
+       ; "            Ordering::Greater => LineIndexOutOfBoundsError {"
+       ; "                given: line_index,"
+       ; "                max: self.last_line_index(),"
+       ; "            },"
+       ; "        }"
+       ]
+      |> String.concat ~sep:"\n")
+  in
+  let diagnostics =
+    Diagnostic.
+      [ { severity = Error
+        ; message = Fmt.fmt "match arms have incompatible types"
+        ; labels =
+            Label.
+              [ secondary ~id ~range:(range 89 134)
+                @@ Fmt.fmt
+                     "this is found to be of type `Result<ByteIndex, \
+                      LineIndexOutOfBoundsError>`"
+              ; primary ~id ~range:(range 230 351)
+                @@ Fmt.fmt
+                     "expected enum `Result`, found struct `LineIndexOutOfBoundsError`"
+              ; secondary ~id ~range:(range 8 362)
+                @@ Fmt.fmt "`match` arms have incompatible types"
+              ; secondary ~id ~range:(range 167 195)
+                @@ Fmt.fmt
+                     "this is found to be of type `Result<ByteIndex, \
+                      LineIndexOutOfBoundsError>`"
+              ]
+        ; notes =
+            [ Fmt.fmt
+                "expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found \
+                 `LineIndexOutOfBoundsError`"
+            ]
+        }
+      ]
+  in
+  print_rich_diagnostics ~files diagnostics;
+  [%expect
+    {|
+    error: match arms have incompatible types
+        ┌─ file.rs:4:34
+      1 │   ╭         match line_index.compare(self.last_line_index()) {
+      2 │   │             Ordering::Less => Ok(self.line_starts()[line_index.to_usize()]),
+        │   │                               --------------------------------------------- this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
+      3 │   │             Ordering::Equal => Ok(self.source_span().end()),
+        │   │                                ---------------------------- this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
+      4 │   │             Ordering::Greater => LineIndexOutOfBoundsError {
+        │ ╭─│──────────────────────────────────^
+      5 │ │ │                 given: line_index,
+      6 │ │ │                 max: self.last_line_index(),
+      7 │ │ │             },
+        │ ╰─│──────────────^ expected enum `Result`, found struct `LineIndexOutOfBoundsError`
+      8 │   │         }
+        │   ╰──────────' `match` arms have incompatible types
+        = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError` |}]
+;;
+
+(* obversations:
+    - off by one error on multiline bottoms
 *)

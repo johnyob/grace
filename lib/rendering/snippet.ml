@@ -84,6 +84,7 @@ module Raw_line = struct
         ; title : Message.t
         }
     | Notes of Message.t list
+    | Empty
   [@@deriving sexp]
 end
 
