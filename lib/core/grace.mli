@@ -156,6 +156,9 @@ module File : sig
   val source : t -> string
 
   module Line : sig
+    (** [starts file] returns the array of byte indexs of the beginning of all lines in [file]. *)
+    val starts : t -> Byte_index.t Array.t
+
     (** [start file line_idx] returns the byte index of the beginning of the line [line_idx] in [file]. *)
     val start : t -> Line_index.t -> Byte_index.t option
 
@@ -220,6 +223,7 @@ module Files : sig
   val source : t -> Id.t -> string
 
   module Line : sig
+    val starts : t -> Id.t -> Byte_index.t Array.t
     val start : t -> Id.t -> Line_index.t -> Byte_index.t option
     val range : t -> Id.t -> Line_index.t -> Range.t option
     val index : t -> Id.t -> Byte_index.t -> Line_index.t

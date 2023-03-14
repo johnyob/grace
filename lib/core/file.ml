@@ -62,6 +62,8 @@ module Line = struct
     else None
   ;;
 
+  let starts t : Byte_index.t Array.t = t.line_starts
+
   let range t (idx : Line_index.t) : Range.t option =
     let open Option.Let_syntax in
     let%map curr_line_start = start t idx

@@ -21,6 +21,7 @@ module Source = struct
 end
 
 module Line = struct
+  let starts t file_id = Line.starts (find t file_id)
   let last t file_id = Line.last (find t file_id)
   let start t file_id idx = Line.start (find t file_id) idx
   let range t file_id idx = Line.range (find t file_id) idx
