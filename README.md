@@ -3,9 +3,9 @@
 
 Grace is an OCaml 🐪 library that includes a series of interfaces for building, reporting, and rendering beautiful compiler errors 📜. 
 
-<center>
+<div align="center">
     <img src="./assets/readme_example.png" width="80%">
-</center>
+</div>
 
 We're still actively working on Grace to support more use cases and improving the quality of the rendering engine. Contributions are very welcome!
 
