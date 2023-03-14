@@ -250,7 +250,7 @@ module Rich = struct
                    { marks = marks ~mark_idx:idx ~mark_kind:`Bottom
                    ; line =
                        Multi_label
-                         { mark_idx = idx; priority; kind = `Bottom (stop, label) }
+                         { mark_idx = idx; priority; kind = `Bottom (stop - 1, label) }
                    }))
       in
       (content_snippet :: single_label_snippets)

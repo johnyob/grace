@@ -293,7 +293,7 @@ fn main() {
      26 │ │         let y = x;
      27 │ │         println!("{:?}", y);
      28 │ │     });
-        │ ╰───────' within this `[closure@no_send_res_ports.rs:29:19: 33:6 x:main::Foo]`
+        │ ╰──────' within this `[closure@no_send_res_ports.rs:29:19: 33:6 x:main::Foo]`
      29 │   }
         = help: within `[closure@no_send_res_ports.rs:29:19: 33:6 x:main::Foo]`, the trait `std::marker::Send` is not implemented for `std::rc::Rc<()>`
         = note: required because it appears within the type `Port<()>`
@@ -459,12 +459,9 @@ let%expect_test "multiline_overlapping" =
       5 │ │ │                 given: line_index,
       6 │ │ │                 max: self.last_line_index(),
       7 │ │ │             },
-        │ ╰─│──────────────^ expected enum `Result`, found struct `LineIndexOutOfBoundsError`
+        │ ╰─│─────────────^ expected enum `Result`, found struct `LineIndexOutOfBoundsError`
       8 │   │         }
-        │   ╰──────────' `match` arms have incompatible types
+        │   ╰─────────' `match` arms have incompatible types
         = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError` |}]
 ;;
 
-(* obversations:
-    - off by one error on multiline bottoms
-*)
