@@ -248,28 +248,26 @@ module Rich = struct
       ; labels : Label.t list
       }
 
-    let to_snippet_lines { id; locus; labels } ~files =
-      (* Create locus *)
-      let locus =
-        let line = Files.Line.index files id locus in
-        let line_start =
-          Option.value_exn ~here:[%here] @@ Files.Line.start files id line
-        in
-        let line_source =
-          Option.value_exn ~here:[%here] @@ Files.Line.slice files id line
-        in
-        Snippet.Line.Raw
-          (Locus
-             { file_name = Files.name files id
-             ; position =
-                 Position.
-                   { line = Line_number.of_index line
-                   ; column =
-                       Column_number.of_index ~line:line_source
-                       @@ Column_index.create Byte_index.(locus -. line_start)
-                   }
-             })
+    let locus ~files id locus : Snippet.Locus.t =
+      let line = Files.Line.index files id locus in
+      let line_start = Option.value_exn ~here:[%here] @@ Files.Line.start files id line in
+      let line_source =
+        Option.value_exn ~here:[%here] @@ Files.Line.slice files id line
       in
+      { file_name = Files.name files id
+      ; position =
+          Position.
+            { line = Line_number.of_index line
+            ; column =
+                Column_number.of_index ~line:line_source
+                @@ Column_index.create Byte_index.(locus -. line_start)
+            }
+      }
+    ;;
+
+    let to_snippet_lines { id; locus = locus'; labels } ~files =
+      (* Create locus *)
+      let locus = Snippet.Line.Raw (Locus (locus ~files id locus')) in
       (* Split labels into [single_labels] and [multi_labels] *)
       let single_labels, multi_labels =
         List.partition_map labels ~f:(fun label ->
@@ -432,7 +430,30 @@ let rich ~files (diagnostic : Diagnostic.t) =
       labels_per_file
   in
   Snippet.
-    { severity; lines = Line.([ Raw (Title message) ] @ lines @ [ Raw (Notes notes) ]) }
+    { severity
+    ; lines =
+        Line.(
+          [ Raw (Title { locus = None; title = message }) ]
+          @ lines
+          @ [ Raw (Notes notes) ])
+    }
 ;;
 
-let simple ~files:_ (_diagnostic : Diagnostic.t) = assert false
+let compact ~files (diagnostic : Diagnostic.t) =
+  let open Diagnostic in
+  let { severity; message; labels; notes = _ } = diagnostic in
+  let primary_loci =
+    List.filter_map labels ~f:(fun { priority; range; id; _ } ->
+        match priority with
+        | Secondary -> None
+        | Primary -> Some (Rich.File.locus ~files id (Range.start range)))
+  in
+  let lines =
+    match primary_loci with
+    | [] -> [ Snippet.Line.Raw (Title { locus = None; title = message }) ]
+    | primary_loci ->
+      List.map primary_loci ~f:(fun locus ->
+          Snippet.Line.Raw (Title { locus = Some locus; title = message }))
+  in
+  Snippet.{ severity; lines }
+;;

@@ -128,9 +128,9 @@ end = struct
     List.range 0 marks_width
     |> List.folding_map ~init:marks ~f:(fun marks idx ->
            match marks with
-           | [] -> 
-            (* TODO: Why do we need a trailing space here? *)
-            marks, mark_sp
+           | [] ->
+             (* TODO: Why do we need a trailing space here? *)
+             marks, mark_sp
            | { idx = idx'; _ } :: _ when idx < idx' -> marks, mark_sp
            | { idx = idx'; _ } :: _ when idx > idx' ->
              (* broken invariant: sorted [marks] *)
@@ -276,22 +276,29 @@ end = struct
     | _ -> source_border_left t
   ;;
 
-  let render_title ({ config } as t) ~severity title =
-    let title = with_style config.style.header_message @@ Message.ppd title in
-    Fmt_doc.(render_severity t ~severity ++ string ": " ++ title)
+  let render_locus ({ file_name; position } : Locus.t) =
+    Fmt_doc.(
+      concat
+        ~sep:(char ':')
+        [ string file_name
+        ; Line_number.ppd position.line
+        ; Column_number.ppd position.column
+        ])
   ;;
 
-  let render_locus t ~line_num_width ({ file_name; position } : Locus.t) =
-    let locus =
-      Fmt_doc.(
-        concat
-          ~sep:(char ':')
-          [ string file_name
-          ; Line_number.ppd position.line
-          ; Column_number.ppd position.column
-          ])
-    in
-    Fmt_doc.(render_outer_gutter ~line_num_width ++ sp ++ snippet_start t ++ sp ++ locus)
+  let render_title ({ config } as t) ~severity locus title =
+    let title = with_style config.style.header_message @@ Message.ppd title in
+    Fmt_doc.(
+      option render_locus locus ++ render_severity t ~severity ++ string ": " ++ title)
+  ;;
+
+  let render_locus t ~line_num_width locus =
+    Fmt_doc.(
+      render_outer_gutter ~line_num_width
+      ++ sp
+      ++ snippet_start t
+      ++ sp
+      ++ render_locus locus)
   ;;
 
   let render_notes t ~line_num_width (notes : Message.t list) =
@@ -310,7 +317,7 @@ end = struct
   let render_raw_line t ~severity ~line_num_width (raw_line : Raw_line.t) =
     match raw_line with
     | Locus locus -> render_locus t ~line_num_width locus
-    | Title title -> render_title t ~severity title
+    | Title { locus; title } -> render_title t ~severity locus title
     | Notes notes -> render_notes t ~line_num_width notes
   ;;
 
@@ -359,7 +366,7 @@ let render (type a) (renderer : a t) (self : a) (snippet : Snippet.t) =
   let module Renderer = (val renderer) in
   let marks_width = marks_width snippet in
   let line_num_width = line_num_width snippet in
-  Fmt.pr "Marks_width: %d\n" marks_width;
+  (* Fmt.pr "Marks_width: %d\n" marks_width; *)
   Fmt_doc.(
     concat ~sep:newline
     @@ List.map snippet.lines ~f:(fun line ->

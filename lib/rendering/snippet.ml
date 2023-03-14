@@ -77,7 +77,10 @@ end
 module Raw_line = struct
   type t =
     | Locus of Locus.t
-    | Title of Message.t
+    | Title of
+        { locus : Locus.t option
+        ; title : Message.t
+        }
     | Notes of Message.t list
   [@@deriving sexp]
 end
