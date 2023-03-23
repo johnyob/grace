@@ -141,19 +141,26 @@ end
 module File : sig
   module Id : Identifiable.S
 
+  module Reader : sig
+    class type t =
+      object
+        method length : int
+        method unsafe_get : int -> char
+      end
+
+    val of_string : string -> t
+  end
+
   (** The abstract type of a file. *)
   type t
 
   type file := t
 
   (** [create name source] *)
-  val create : string -> string -> t
+  val create : string -> Reader.t -> t
 
   (** [name t] returns the name associated with the file [t]. *)
   val name : t -> string
-
-  (** [source t] returns the source associated with the file [t]. *)
-  val source : t -> string
 
   module Line : sig
     (** [starts file] returns the array of byte indexs of the beginning of all lines in [file]. *)
@@ -217,10 +224,9 @@ module Files : sig
   type t
 
   val create : unit -> t
-  val add : t -> string -> string -> Id.t
+  val add : t -> string -> Reader.t -> Id.t
   val find : t -> Id.t -> File.t
   val name : t -> Id.t -> string
-  val source : t -> Id.t -> string
 
   module Line : sig
     val starts : t -> Id.t -> Byte_index.t Array.t

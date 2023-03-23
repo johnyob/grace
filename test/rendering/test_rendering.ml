@@ -45,13 +45,15 @@ let%expect_test "same_line" =
     Files.add
       files
       "one_line.rs"
-      (String.lstrip
-         {|
+      (File.Reader.of_string
+      @@ String.lstrip
+           {|
 fn main() {
     let mut v = vec![Some("foo"), Some("bar")];
     v.push(v.pop().unwrap());
 }
-  |})
+  |}
+      )
   in
   let diagnostics =
     Diagnostic.
@@ -102,21 +104,24 @@ let%expect_test "overlapping" =
     Files.add
       files
       "nested_impl_trait.rs"
-      (String.lstrip
-         {|
+      (File.Reader.of_string
+      @@ String.lstrip
+           {|
 use std::fmt::Debug;
 
 fn fine(x: impl Into<u32>) -> impl Into<u32> { x }
 
 fn bad_in_ret_position(x: impl Into<u32>) -> impl Into<impl Debug> { x }
-|})
+|}
+      )
   in
   let file_id2 =
     Files.add
       files
       "typeck_type_placeholder_item.rs"
-      (String.lstrip
-         {|
+      (File.Reader.of_string
+      @@ String.lstrip
+           {|
 fn fn_test1() -> _ { 5 }
 fn fn_test2(x: i32) -> (_, _) { (x, x) }  
 |})
@@ -125,8 +130,9 @@ fn fn_test2(x: i32) -> (_, _) { (x, x) }
     Files.add
       files
       "libstd/thread/mod.rs"
-      (String.lstrip
-         {|
+      (File.Reader.of_string
+      @@ String.lstrip
+           {|
 #[stable(feature = "rust1", since = "1.0.0")]
 pub fn spawn<F, T>(self, f: F) -> io::Result<JoinHandle<T>>
 where
@@ -136,14 +142,16 @@ where
 {
     unsafe { self.spawn_unchecked(f) }
 }
-|})
+|}
+      )
   in
   let file_id4 =
     Files.add
       files
       "no_send_res_ports.rs"
-      (String.lstrip
-         {|
+      (File.Reader.of_string
+      @@ String.lstrip
+           {|
 use std::thread;
 use std::rc::Rc;
 
@@ -173,7 +181,8 @@ fn main() {
         println!("{:?}", y);
     });
 }
-|})
+|}
+      )
   in
   let diagnostics =
     Diagnostic.
@@ -306,7 +315,9 @@ fn main() {
 
 let%expect_test "empty ranges" =
   let files = Files.create () in
-  let file_id = Files.add files "hello" "Hello world!\nBye world!\n   " in
+  let file_id =
+    Files.add files "hello" (File.Reader.of_string "Hello world!\nBye world!\n   ")
+  in
   let eof = Range.stop @@ Files.Source.range files file_id in
   let diagnostics =
     Diagnostic.
@@ -363,7 +374,7 @@ let%expect_test "empty ranges" =
 
 let%expect_test "same ranges" =
   let files = Files.create () in
-  let id = Files.add files "same_range" "::S { }" in
+  let id = Files.add files "same_range" (File.Reader.of_string "::S { }") in
   let diagnostics =
     Diagnostic.
       [ { severity = Error
@@ -395,16 +406,17 @@ let%expect_test "multiline_overlapping" =
     Files.add
       files
       "file.rs"
-      ([ "        match line_index.compare(self.last_line_index()) {"
-       ; "            Ordering::Less => Ok(self.line_starts()[line_index.to_usize()]),"
-       ; "            Ordering::Equal => Ok(self.source_span().end()),"
-       ; "            Ordering::Greater => LineIndexOutOfBoundsError {"
-       ; "                given: line_index,"
-       ; "                max: self.last_line_index(),"
-       ; "            },"
-       ; "        }"
-       ]
-      |> String.concat ~sep:"\n")
+      (File.Reader.of_string
+      @@ ([ "        match line_index.compare(self.last_line_index()) {"
+          ; "            Ordering::Less => Ok(self.line_starts()[line_index.to_usize()]),"
+          ; "            Ordering::Equal => Ok(self.source_span().end()),"
+          ; "            Ordering::Greater => LineIndexOutOfBoundsError {"
+          ; "                given: line_index,"
+          ; "                max: self.last_line_index(),"
+          ; "            },"
+          ; "        }"
+          ]
+         |> String.concat ~sep:"\n"))
   in
   let diagnostics =
     Diagnostic.

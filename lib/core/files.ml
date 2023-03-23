@@ -13,7 +13,6 @@ let add t name source =
 
 let find t file_id = Hashtbl.find_exn t file_id
 let name t file_id = (find t file_id).name
-let source t file_id = (find t file_id).source
 
 module Source = struct
   let range t file_id = Source.range (find t file_id)

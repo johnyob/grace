@@ -18,51 +18,71 @@ end = struct
   ;;
 end
 
+module Reader = struct
+  class type t =
+    object
+      method length : int
+      method unsafe_get : int -> char
+    end
+
+  let of_string str : t =
+    object
+      method length = String.length str
+      method unsafe_get idx = String.unsafe_get str idx
+    end
+  ;;
+end
+
 type t =
   { name : string
-  ; source : string (* TODO: Bigstring *)
-  ; line_starts : Byte_index.t Array.t
+  ; reader : Reader.t
+  ; line_starts : Byte_index.t Array.t Lazy.t
   }
 
-let create name source =
+let create name reader =
   let line_starts =
-    (* Prefix with zero since no preceeding newline *)
-    0
-    :: (source
-       |> String.to_list
-       |> List.filter_mapi ~f:(fun idx c ->
-              match c with
-              | '\n' -> Some (Byte_index.create (idx + 1))
-              | _ -> None))
+    lazy
+      ((* Prefix with zero since no preceeding newline *)
+       let line_starts = ref [ 0 ] in
+       for idx = 0 to reader#length - 1 do
+         match reader#unsafe_get idx with
+         | '\n' -> line_starts := Byte_index.create (idx + 1) :: !line_starts
+         | _ -> ()
+       done;
+       Array.of_list @@ List.rev !line_starts)
   in
-  { name; source; line_starts = Array.of_list line_starts }
+  { name; reader; line_starts }
 ;;
 
 let name t = t.name
-let source t = t.source
-let stop t = String.length t.source
+let stop t = t.reader#length
 
 module Source = struct
   let range t = Range.create Byte_index.initial (stop t)
 
   let slice t ({ start; stop } : Range.t) =
-    String.sub t.source ~pos:start ~len:(stop - start)
+    assert (stop <= t.reader#length);
+    let buf = Buffer.create (stop - start) in
+    for i = start to stop - 1 do
+      Buffer.add_char buf (t.reader#unsafe_get i)
+    done;
+    Buffer.contents buf
   ;;
 end
 
 module Line = struct
-  let last t : Line_index.t = Line_index.create (Array.length t.line_starts)
+  let last t : Line_index.t = Line_index.create (Array.length (Lazy.force t.line_starts))
 
   let start t (idx : Line_index.t) : Byte_index.t option =
     let last_line_index = last t in
     if Line_index.(initial <= idx && idx < last_line_index)
-    then Some (Array.unsafe_get t.line_starts (idx :> int))
+    then Some (Array.unsafe_get (Lazy.force t.line_starts) (idx :> int))
     else if Line_index.(idx = last_line_index)
     then Some (stop t)
     else None
   ;;
 
-  let starts t : Byte_index.t Array.t = t.line_starts
+  let starts t : Byte_index.t Array.t = Lazy.force t.line_starts
 
   let range t (idx : Line_index.t) : Range.t option =
     let open Option.Let_syntax in
@@ -73,7 +93,7 @@ module Line = struct
 
   let index t (idx : Byte_index.t) : Line_index.t =
     Binary_search.binary_search
-      t.line_starts
+      (Lazy.force t.line_starts)
       ~length:Array.length
       ~get:Array.get
       ~compare:Byte_index.compare
@@ -96,7 +116,7 @@ module Line_range = struct
     let start, stop = Range.(start range, stop range) in
     let line = Line.index file start in
     (* [Line.index] always returns a valid index into [file.line_starts] *)
-    let line_start = Array.unsafe_get file.line_starts line in
+    let line_start = Array.unsafe_get (Lazy.force file.line_starts) line in
     let next_line_start = Line.start file Line_index.(line + 1) in
     { line
     ; range =
@@ -113,7 +133,9 @@ module Line_range = struct
     | Some next_line_start ->
       if Range.contains range next_line_start
       then (
-        let start = file.line_starts.(curr.line) + Range.Column_index.(stop curr.range) in
+        let start =
+          (Lazy.force file.line_starts).(curr.line) + Range.Column_index.(stop curr.range)
+        in
         let stop = Range.stop range in
         let next_next_line_start = Line.start file Line_index.(next_line + 1) in
         Some
@@ -127,7 +149,7 @@ module Line_range = struct
   ;;
 
   let slice file { line; range } =
-    let line_start = file.line_starts.(line) in
+    let line_start = (Lazy.force file.line_starts).(line) in
     let start, stop = Range.Column_index.(start range, stop range) in
     Source.slice file (Range.create (line_start + start) (line_start + stop))
   ;;

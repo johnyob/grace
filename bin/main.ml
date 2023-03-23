@@ -15,7 +15,7 @@ let fizz n =
 (* Grace provides a Files API for in-memory representations of 
    files. *)
 let files = Files.create ()
-let fizz = Files.add files "fizz.ml" source
+let fizz = Files.add files "fizz.ml" (File.Reader.of_string source)
 
 let diagnostic : Diagnostic.t =
   let range start stop =

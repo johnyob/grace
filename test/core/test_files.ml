@@ -2,7 +2,7 @@ open! Import
 
 let foo = "foo\nbar\r\n\nbaz"
 let files = Files.create ()
-let foo_id = Files.add files "foo_test" foo
+let foo_id = Files.add files "foo_test" (File.Reader.of_string foo)
 let pp_escaped_string ppf str = Fmt.pf ppf "%s" (String.escaped str)
 
 let%expect_test _ =
@@ -10,10 +10,6 @@ let%expect_test _ =
   [%expect {| foo_test |}]
 ;;
 
-let%expect_test _ =
-  Fmt.pr "%a" pp_escaped_string (Files.source files foo_id);
-  [%expect {| foo\nbar\r\n\nbaz |}]
-;;
 
 let%expect_test _ =
   (* Line index *)
