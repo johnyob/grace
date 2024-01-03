@@ -31,3 +31,6 @@ _opam/
 # Attic scratchpad
 attic/
 TODO.md
+
+# node modules
+node_modules
