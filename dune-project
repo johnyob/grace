@@ -10,8 +10,20 @@
 
 (authors "Alistair O'Brien")
 
+(source
+ (github johnyob/grace))
+
 (package
  (name grace)
+ (version 0.1.0)
  (synopsis
   "A fancy diagnostics library that allows your compilers to exit with grace")
- (depends dune core ppx_jane fmt dedent iter core_unix))
+ (depends
+  dune
+  core
+  ppx_jane
+  (fmt
+   (>= 0.8.7))
+  dedent
+  iter
+  core_unix))
