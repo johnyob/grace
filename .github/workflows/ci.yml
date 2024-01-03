@@ -1,0 +1,61 @@
+name: Continuous Integration
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+  workflow_dispatch:
+
+jobs:
+  commitlint:
+    name: Lint commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wagoid/commitlint-github-action@v5
+
+  fmt:
+    name: Format
+    needs: [commitlint]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: ocaml-base-compiler.4.14.1
+
+      - name: Install ocamlformat
+        run: make install-ocamlformat
+
+      - name: Format code
+        run: opam exec -- dune build @fmt
+
+  build:
+    name: Build and test
+    needs: [fmt]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        ocaml-compiler:
+          - ocaml-base-compiler.4.14.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use OCaml ${{ matrix.ocaml-compiler }}
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - name: Install opam dependencies
+        run: opam install --deps-only --with-test .
+
+      - name: Build project
+        run: opam exec -- dune build @install
+
+      - name: Run tests
+        run: opam exec -- dune test

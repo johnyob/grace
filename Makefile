@@ -3,9 +3,13 @@
 .PHONY: all
 all: build
 
+.PHONY: install-ocamlformat
+install-ocamlformat:
+	opam install -y ocamlformat=0.26.1
+
 .PHONY: install-deps
-install-deps: install-switch 
-	opam install -y ocamlformat=0.26.1 ocaml-lsp-server
+install-deps: install-switch install-ocamlformat
+	opam install -y ocaml-lsp-server
 	opam install -y --deps-only --with-test --with-doc .
 
 .PHONY: install-switch
