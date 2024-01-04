@@ -13,7 +13,7 @@ let range ~source start stop =
 let pr_diagnostics diagnostics =
   let open Grace_rendering in
   (* Disable colors for tests (since expect tests don't support ANSI colors) *)
-  let config = Config.{ default with color = false } in
+  let config = Config.{ default with use_ansi = false } in
   Fmt.(list ~sep:(fun ppf () -> pf ppf "@.@.") (Ansi.pp_diagnostic ~config))
     Fmt.stdout
     diagnostics
