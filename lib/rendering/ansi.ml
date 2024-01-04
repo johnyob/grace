@@ -702,10 +702,8 @@ let multi_width (snippet : Snippet.t) =
   |> Option.value ~default:0
 ;;
 
-let style_renderer (config : Config.t) = if config.color then `Ansi_tty else `None
-
 let pp_diagnostic ~config ppf diagnostic =
-  Fmt.set_style_renderer ppf (style_renderer config);
+  Fmt.set_style_renderer ppf (Config.style_renderer config);
   Format.pp_set_geometry ppf ~max_indent:2 ~margin:Int.max_value;
   Source_reader.with_reader
   @@ fun () ->

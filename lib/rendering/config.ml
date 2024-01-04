@@ -4,6 +4,13 @@ open Diagnostic
 module Style_sheet = struct
   type style = Fmt.style list
 
+  let not_color : Fmt.style -> bool = function
+    | `None | `Bold | `Faint | `Italic | `Underline | `Reverse -> true
+    | _ -> false
+  ;;
+
+  let no_color_style = List.filter ~f:not_color
+
   type t =
     { header_bug : style
     ; header_error : style
@@ -21,6 +28,27 @@ module Style_sheet = struct
     ; source_border : style
     ; note_bullet : style
     }
+
+  let map t ~f =
+    { header_bug = f t.header_bug
+    ; header_error = f t.header_error
+    ; header_warning = f t.header_warning
+    ; header_note = f t.header_note
+    ; header_help = f t.header_help
+    ; header_message = f t.header_message
+    ; primary_label_bug = f t.primary_label_bug
+    ; primary_label_error = f t.primary_label_error
+    ; primary_label_warning = f t.primary_label_warning
+    ; primary_label_note = f t.primary_label_note
+    ; primary_label_help = f t.primary_label_help
+    ; secondary_label = f t.secondary_label
+    ; line_number = f t.line_number
+    ; source_border = f t.source_border
+    ; note_bullet = f t.note_bullet
+    }
+  ;;
+
+  let no_color t = map t ~f:no_color_style
 
   let default =
     let header color = [ `Bold; `Fg (`Hi color) ] in
@@ -83,6 +111,26 @@ module Chars = struct
     ; pointer_left : string
     }
 
+  let ascii =
+    { snippet_start = "┌─"
+    ; source_border_left = "│"
+    ; source_border_left_break = "·"
+    ; note_bullet = "="
+    ; single_primary_caret = "^"
+    ; single_secondary_caret = "-"
+    ; multi_primary_caret_start = "^"
+    ; multi_primary_caret_end = "^"
+    ; multi_secondary_caret_start = "\'"
+    ; multi_secondary_caret_end = "\'"
+    ; multi_top_left = "╭"
+    ; multi_top = "─"
+    ; multi_bottom_left = "╰"
+    ; multi_bottom = "─"
+    ; multi_left = "│"
+    ; pointer_left = "│"
+    }
+  ;;
+
   let unicode =
     { snippet_start = "┌─"
     ; source_border_left = "│"
@@ -107,7 +155,24 @@ end
 type t =
   { chars : Chars.t
   ; styles : Style_sheet.t
-  ; color : bool
+  ; use_ansi : bool
   }
 
-let default = { chars = Chars.unicode; styles = Style_sheet.default; color = true }
+let no_color =
+  match Sys.getenv "NO_COLOR" with
+  | None | Some "" -> false
+  | _ -> true
+;;
+
+let is_rich_term =
+  match Sys.getenv "TERM" with
+  | None | Some "" | Some "dumb" -> false
+  | _ -> true
+;;
+
+let style_renderer t = if t.use_ansi then `Ansi_tty else `None
+
+let default =
+  let styles = if no_color then Style_sheet.(no_color default) else Style_sheet.default in
+  { chars = Chars.unicode; styles; use_ansi = is_rich_term }
+;;
