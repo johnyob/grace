@@ -563,7 +563,7 @@ let pp_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
       multi_line_label)
 ;;
 
-let pp_locus ~config ~ctxt ppf (source, lnum, cnum) =
+let pp_locus ~config ~ctxt ~source ppf (line_idx, col_idx) =
   Fmt.pf
     ppf
     "@[<h>%*s %a %s:%a:%a@]"
@@ -573,9 +573,9 @@ let pp_locus ~config ~ctxt ppf (source, lnum, cnum) =
     ()
     (Option.value (Source.name source) ~default:"unknown")
     Line_number.pp
-    lnum
+    (Line_number.of_line_index line_idx)
     Column_number.pp
-    cnum
+    (Column_number.of_column_index col_idx)
 ;;
 
 let pp_line_gutter ~config ~ctxt ppf () =
@@ -601,30 +601,10 @@ let pp_source
   ~line_num_width
   ~multi_width
   ppf
-  ({ source; blocks; labels } : Snippet.source)
+  ({ source; blocks; locus; labels = _ } : Snippet.source)
   =
   let ctxt = { multi_context = Multi_context.create ~len:multi_width; line_num_width } in
-  let locus =
-    (* TODO: Move to snippet *)
-    let _, locus_idx =
-      (* The locus is defined as the earliest highest priority position in the the set of labels *)
-      labels
-      |> List.map ~f:(fun label -> label.priority, Range.start label.range)
-      |> List.max_elt ~compare:[%compare: Diagnostic.Priority.t * Byte_index.t]
-      |> Option.value_exn ~here:[%here]
-    in
-    let line =
-      let sd = Source_reader.open_source source in
-      Source_reader.Line.of_byte_index sd locus_idx
-    in
-    let lnum = Line_number.of_line_index line.idx in
-    let cnum =
-      Column_number.of_column_index
-      @@ Column_index.of_int Byte_index.(diff locus_idx (Source_reader.Line.start line))
-    in
-    source, lnum, cnum
-  in
-  pp_locus ~config ~ctxt ppf locus;
+  pp_locus ~config ~ctxt ~source ppf locus;
   if not (List.is_empty blocks) then Fmt.pf ppf "@.";
   List.iteri blocks ~f:(fun i block ->
     if i <> 0
