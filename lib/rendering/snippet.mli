@@ -54,6 +54,7 @@ type block =
 (** A source consists of multiple blocks within the same {{!type:Source.t} source}. *)
 and source =
   { source : Source.t (** The source. *)
+  ; locus : Line_index.t * Column_index.t (** The 'locus' position. *)
   ; labels : Label.t list (** The labels within the source. *)
   ; blocks : block list
   (** The list of {!type:block}s. The blocks are non-overlapping and sorted. *)

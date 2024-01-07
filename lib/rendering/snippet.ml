@@ -46,6 +46,7 @@ type block =
 
 and source =
   { source : Source.t
+  ; locus : Line_index.t * Column_index.t
   ; labels : Label.t list
   ; blocks : block list
   }
@@ -373,6 +374,21 @@ module Of_diagnostic = struct
     labels |> lines_of_labels ~sd |> add_contextual_lines ~sd |> group
   ;;
 
+  let locus_of_labels ~sd (labels : Label.t list) =
+    (* The locus is defined as the earliest highest priority position in the the set of labels *)
+    let _, locus_idx =
+      labels
+      |> List.map ~f:(fun label -> label.priority, Range.start label.range)
+      |> List.max_elt ~compare:[%compare: Diagnostic.Priority.t * Byte_index.t]
+      |> Option.value_exn ~here:[%here]
+    in
+    let line = Source_reader.Line.of_byte_index sd locus_idx in
+    let col_idx =
+      Column_index.of_int Byte_index.(diff locus_idx (Source_reader.Line.start line))
+    in
+    line.idx, col_idx
+  ;;
+
   let of_diagnostic Diagnostic.{ severity; message; labels; notes } =
     let sources =
       labels
@@ -386,7 +402,11 @@ module Of_diagnostic = struct
            + Sources for each label are equal *)
         let source = Range.source (List.hd_exn labels).range in
         let sd = Source_reader.open_source source in
-        { source; labels; blocks = block_of_labels ~sd labels })
+        { source
+        ; labels
+        ; locus = locus_of_labels ~sd labels
+        ; blocks = block_of_labels ~sd labels
+        })
     in
     { severity; message; notes; sources }
   ;;
