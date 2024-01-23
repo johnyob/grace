@@ -29,10 +29,8 @@ We're still actively working on Grace to support more use cases and improving th
 
 ## Installation
 
-This library has not yet been released to `opam`. To install, first
-
+This library is available on `opam`. To install
 ```sh
-opam pin add --yes https://gitlab.com/alistair.obrien/grace.git
 opam install grace
 ```
 
