@@ -4,36 +4,6 @@ open Snippet
 open Config
 module Multi_id = Multi_line_label.Id
 
-module Line_number : sig
-  type t = private int
-
-  include Pretty_printer.S with type t := t
-
-  val of_line_index : Line_index.t -> t
-  val to_string : t -> string
-end = struct
-  type t = int
-
-  let pp = Fmt.int
-  let to_string = Fmt.to_to_string pp
-  let of_line_index (idx : Line_index.t) = (idx :> int) + 1
-end
-
-module Column_number : sig
-  type t = private int
-
-  include Pretty_printer.S with type t := t
-
-  val of_column_index : Column_index.t -> t
-  val to_string : t -> string
-end = struct
-  type t = int
-
-  let pp = Fmt.int
-  let to_string = Fmt.to_to_string pp
-  let of_column_index (idx : Column_index.t) = (idx :> int) + 1
-end
-
 let pp_label_styled ~(config : Config.t) ~severity ~priority pp =
   Fmt.styled_multi (Style_sheet.label config.styles priority severity) pp
 ;;
@@ -333,7 +303,7 @@ module Multi_line_label = struct
     | None -> pp ppf x
   ;;
 
-  let pp ~config ~severity ~ctxt ~line_start ppf (multi_line_label : Multi_line_label.t) =
+  let pp ~config ~severity ~ctxt ppf (multi_line_label : Multi_line_label.t) =
     match multi_line_label with
     | Bottom { id; stop; priority; label } ->
       Multi_context.free ctxt.multi_context ~multi_id:id
@@ -343,27 +313,29 @@ module Multi_line_label = struct
         ~config
         ~severity
         ppf
-        (Byte_index.diff stop line_start - 1, priority, label)
+        (* [-2] since we want a [-1] offset and [stop] is a column number (starting at 1) *)
+        ((stop :> int) - 2, priority, label)
     | Top { id; start; priority } ->
       Multi_context.def ctxt.multi_context ~multi_id:id ~priority
       @@ fun () ->
       pp_multi_lines ~config ~severity ppf ctxt.multi_context;
-      pp_top ~config ~severity ppf (Byte_index.diff start line_start, priority)
+      (* [-1] since [start] is a column number (starting at 1) *)
+      pp_top ~config ~severity ppf ((start :> int) - 1, priority)
   ;;
 end
 
 module Inline_labels = struct
   (** An inline segment with dangling pointers, with optional messages. *)
   type hanging_segment =
-    { offset : int (** The offset into the line *)
-    ; width : int (** The width of the segment > 0 *)
+    { offset : Column_number.t (** The offset into the line *)
+    ; length : int (** The length of the segment > 0 *)
     ; priority : Priority.t
     ; messages : Message.t list
     }
 
   type trailing_segment =
-    { offset : int
-    ; width : int
+    { offset : Column_number.t
+    ; length : int
     ; priority : Priority.t
     ; message : Message.t
     }
@@ -388,21 +360,21 @@ module Inline_labels = struct
 
   let pp_carets ~config ~severity ppf { hanging_segments; trailing_segment } =
     (* [cursor] is used to keep track of the position in the current line buffer *)
-    let cursor = ref 0 in
-    let pr_segment (offset, width, priority) =
-      assert (!cursor <= offset);
+    let cursor = ref Column_number.initial in
+    let pr_segment (offset, length, priority) =
+      assert (Column_number.(!cursor <= offset));
       (* Print spaces up until [range] *)
-      Fmt.sps (offset - !cursor) ppf ();
+      Fmt.sps Column_number.(diff offset !cursor) ppf ();
       (* Print carets *)
-      Fmt.(repeat ~width @@ Chars.pp_caret ~config ~severity ~priority) ppf ();
+      Fmt.(repeat ~width:length @@ Chars.pp_caret ~config ~severity ~priority) ppf ();
       (* Update cursor to be stop *)
-      cursor := offset + width
+      cursor := Column_number.(add offset length)
     in
     (* Render the carets for hanging and trailing segments *)
-    List.iter hanging_segments ~f:(fun { offset; width; priority; _ } ->
-      pr_segment (offset, width, priority));
-    Option.iter trailing_segment ~f:(fun { offset; width; priority; _ } ->
-      pr_segment (offset, width, priority))
+    List.iter hanging_segments ~f:(fun { offset; length; priority; _ } ->
+      pr_segment (offset, length, priority));
+    Option.iter trailing_segment ~f:(fun { offset; length; priority; _ } ->
+      pr_segment (offset, length, priority))
   ;;
 
   let pp_hanging_segments ~config ~severity ppf segments =
@@ -417,23 +389,32 @@ module Inline_labels = struct
       | [] ->
         (* Print the initial hanging pointers *)
         Fmt.pf ppf "%s" pointers
-      | { offset; width; priority = _; messages = [] } :: segments ->
-        assert (cursor <= offset);
+      | { offset; length; priority = _; messages = [] } :: segments ->
+        assert (Column_number.(cursor <= offset));
         (* In the case of an empty hanging segment, simply print the spaces and move the cursor *)
-        let pointers = String.(pointers ^ String.make (offset + width - cursor) ' ') in
-        loop (offset + width) pointers segments
-      | { offset; width = _; priority; messages = _ :: _ as messages } :: segments ->
-        assert (cursor <= offset);
+        let pointers =
+          String.append
+            pointers
+            (String.make Column_number.(diff (add offset length) cursor) ' ')
+        in
+        loop Column_number.(add offset length) pointers segments
+      | { offset; length = _; priority; messages = _ :: _ as messages } :: segments ->
+        assert (Column_number.(cursor <= offset));
         (* Prefix the pointers with spaces *)
-        let pointers = String.(pointers ^ make (offset - cursor) ' ') in
+        let pointers =
+          String.append pointers (String.make Column_number.(diff offset cursor) ' ')
+        in
         (* Print the pointers & messages above this message adding a pointer for this set of messages
-           Invariant: offset + width >= offset + 1 <=> width > 0 *)
-        loop (offset + 1) String.(pointers ^ str_pointer_left priority) segments;
+           Invariant: offset + length >= offset + 1 <=> length > 0 *)
+        loop
+          Column_number.(add offset 1)
+          String.(pointers ^ str_pointer_left priority)
+          segments;
         Fmt.newline ppf ();
         (* Print the messages *)
         pbox ~prefix:pointers (pp_messages ~priority) ppf messages
     in
-    loop 0 "" segments
+    loop Column_number.initial "" segments
   ;;
 
   let pp ~config ~severity ppf t =
@@ -446,9 +427,10 @@ module Inline_labels = struct
     then Fmt.pf ppf "@.%a" (pp_hanging_segments ~config ~severity) t.hanging_segments
   ;;
 
-  let as_trailing_segment { priority; offset; width; messages } : trailing_segment option =
+  let as_trailing_segment { priority; offset; length; messages } : trailing_segment option
+    =
     match messages with
-    | [ message ] -> Some { priority; offset; width; message }
+    | [ message ] -> Some { priority; offset; length; message }
     | _ -> None
   ;;
 
@@ -470,11 +452,10 @@ module Inline_labels = struct
          | None ->
            let hanging_segments = List.rev (Option.to_list prev_segment @ rev_segments) in
            { hanging_segments; trailing_segment = None })
-      | { stag = None; content; _ } :: segments ->
+      | { stag = None; content = _; length } :: segments ->
         (* Segments with no semantic tag cannot be hanging (or trailing) segments *)
-        loop segments (rev_segments, offset + String.length content, prev_segment)
-      | { stag = Some { priority; inline_labels }; content; _ } :: segments ->
-        let width = String.length content in
+        loop segments (rev_segments, Column_number.(add offset length), prev_segment)
+      | { stag = Some { priority; inline_labels }; content = _; length } :: segments ->
         let messages =
           (* Ensure that higher priority messages are printed first *)
           inline_labels
@@ -486,23 +467,14 @@ module Inline_labels = struct
         loop
           segments
           ( Option.to_list prev_segment @ rev_segments
-          , offset + width
-          , Some { priority; messages; offset; width } )
+          , Column_number.add offset length
+          , Some { priority; messages; offset; length } )
     in
-    loop segments ([], 0, None)
+    loop segments ([], Column_number.initial, None)
   ;;
 end
 
-let margin_length (line : Line.t) =
-  (* TODO: Move computation to Snippet *)
-  let line_content =
-    line.segments |> List.map ~f:(fun { content; _ } -> content) |> String.concat
-  in
-  (* print_s [%message "Compute margin" (line : Line.t) (line_content : string)]; *)
-  String.length line_content - String.length (String.lstrip line_content)
-;;
-
-let pp_multi_line_label ~config ~severity ~ctxt ~line_start ppf multi_line_label =
+let pp_multi_line_label ~config ~severity ~ctxt ppf multi_line_label =
   Fmt.pf
     ppf
     "@[<h>%*s %a %a@]"
@@ -510,7 +482,7 @@ let pp_multi_line_label ~config ~severity ~ctxt ~line_start ppf multi_line_label
     ""
     (Chars.pp_source_border_left ~config)
     ()
-    (Multi_line_label.pp ~config ~severity ~ctxt ~line_start)
+    (Multi_line_label.pp ~config ~severity ~ctxt)
     multi_line_label
 ;;
 
@@ -520,14 +492,13 @@ let pp_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
   (* Render multi-line top in line content if:
      - unique top in multi_line_labels
      - top starts in the whitespace/start of new line *)
-  let margin_length = margin_length line in
   let multi_line_labels, unique_top_multi_line_label =
     List.fold_right
       line.multi_line_labels
       ~init:([], None)
       ~f:(fun multi_line_label (mlls, utmll) ->
         match multi_line_label with
-        | Top { start; _ } when Byte_index.diff start line.start - 1 <= margin_length ->
+        | Top { start; _ } when (start :> int) - 1 <= line.margin_length ->
           (match utmll with
            | None -> mlls, Some multi_line_label
            | Some utmll -> multi_line_label :: utmll :: mlls, None)
@@ -554,16 +525,10 @@ let pp_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
   (* Print multi-line labels (if any) *)
   List.iter multi_line_labels ~f:(fun multi_line_label ->
     Fmt.newline ppf ();
-    pp_multi_line_label
-      ~config
-      ~severity
-      ~ctxt
-      ~line_start:line.start
-      ppf
-      multi_line_label)
+    pp_multi_line_label ~config ~severity ~ctxt ppf multi_line_label)
 ;;
 
-let pp_locus ~config ~ctxt ~source ppf (line_idx, col_idx) =
+let pp_locus ~config ~ctxt ~source ppf (line_num, col_num) =
   Fmt.pf
     ppf
     "@[<h>%*s %a %s:%a:%a@]"
@@ -573,9 +538,9 @@ let pp_locus ~config ~ctxt ~source ppf (line_idx, col_idx) =
     ()
     (Option.value (Source.name source) ~default:"unknown")
     Line_number.pp
-    (Line_number.of_line_index line_idx)
+    line_num
     Column_number.pp
-    (Column_number.of_column_index col_idx)
+    col_num
 ;;
 
 let pp_line_gutter ~config ~ctxt ppf () =

@@ -26,4 +26,5 @@
    (>= 0.8.7))
   dedent
   iter
-  core_unix))
+  core_unix
+  uutf))

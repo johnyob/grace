@@ -16,6 +16,7 @@ depends: [
   "dedent"
   "iter"
   "core_unix"
+  "uutf"
   "odoc" {with-doc}
 ]
 build: [

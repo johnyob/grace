@@ -2,6 +2,17 @@ open! Core
 open! Grace
 open! Diagnostic
 
+(** [Number]s are indexes (with different initial constraints) *)
+module type Number = Index
+
+module Line_number : sig
+  include Number
+
+  val of_line_index : Line_index.t -> t
+end
+
+module Column_number : Number
+
 module Multi_line_label : sig
   module Id : Identifiable.S
 
@@ -9,12 +20,12 @@ module Multi_line_label : sig
   type t =
     | Top of
         { id : Id.t (** The unique identifier. *)
-        ; start : Byte_index.t (** The starting byte index of the label. *)
+        ; start : Column_number.t (** The column number of the start of the label. *)
         ; priority : Priority.t (** The priority of the label. *)
         }
     | Bottom of
         { id : Id.t (** The unique identifier. *)
-        ; stop : Byte_index.t (** The starting byte index of the label. *)
+        ; stop : Column_number.t (** The column number of the end of the label *)
         ; priority : Priority.t (** The priority of the label. *)
         ; label : Message.t (** The message of the label. *)
         }
@@ -31,15 +42,15 @@ module Line : sig
   (** A segment is a string with an optional semantic tag. *)
   and segment =
     { content : string
-    ; range : Range.t
+    ; length : int
     ; stag : stag option
     }
 
   (** A line is a list of {!type:segment}s with {{!type:Multi_line_label.t} multi-line label}s. *)
   and t =
-    { start : Byte_index.t
-    ; segments : segment list
+    { segments : segment list
     ; multi_line_labels : Multi_line_label.t list
+    ; margin_length : int
     }
   [@@deriving sexp]
 end
@@ -54,11 +65,13 @@ type block =
 (** A source consists of multiple blocks within the same {{!type:Source.t} source}. *)
 and source =
   { source : Source.t (** The source. *)
-  ; locus : Line_index.t * Column_index.t (** The 'locus' position. *)
+  ; locus : locus (** The 'locus' position. *)
   ; labels : Label.t list (** The labels within the source. *)
   ; blocks : block list
   (** The list of {!type:block}s. The blocks are non-overlapping and sorted. *)
   }
+
+and locus = Line_number.t * Column_number.t
 
 (** The type of a snippet, an internal representation of a rendered diagnostic. *)
 and t =
