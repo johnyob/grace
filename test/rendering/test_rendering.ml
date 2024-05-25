@@ -19,6 +19,19 @@ let pr_diagnostics diagnostics =
     diagnostics
 ;;
 
+let pr_bad_diagnostics diagnostics =
+  let open Grace_rendering in
+  let config = Config.{ default with use_ansi = false } in
+  Fmt.(
+    list
+      ~sep:(fun ppf () -> pf ppf "@.@.")
+      (fun ppf diagnostic ->
+        try Ansi.pp_diagnostic ~config ppf diagnostic with
+        | exn -> Fmt.pf ppf "Raised: %s" (Exn.to_string exn)))
+    Fmt.stdout
+    diagnostics
+;;
+
 (* Taken from https://github.com/brendanzab/codespan/blob/master/codespan-reporting/tests/term.rs *)
 
 let%expect_test "empty" =
@@ -370,4 +383,103 @@ let%expect_test "multiline_overlapping" =
       8 │ │            }
         │ ╰────────────' `match` arms have incompatible types
         = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError` |}]
+;;
+
+let%expect_test "unicode" =
+  let source = source "unicode.rs" {|extern "路濫狼á́́" fn foo() {}|} in
+  let diagnostics =
+    Diagnostic.
+      [ createf
+          ~notes:
+            [ Message.createf
+                "@[<v 3>valid ABIs:@.- aapcs@.- amdgpu-kernel@.- C@.- cdecl@.- efiapi@.- \
+                 fastcall@.- msp430-interrupt@.- platform-intrinsic@.- ptx-kernel@.- \
+                 Rust@.- rust-call@.- rust-intrinsic@.- stdcall@.- system@.- sysv64@.- \
+                 thiscall@.- unadjusted@.- vectorcall@.- win64@.- x86-interrupt@]"
+            ]
+          ~labels:[ Label.primaryf ~range:(range ~source 7 24) "invalid ABI" ]
+          Error
+          "invalid ABI: found `路濫狼á́́`"
+      ]
+  in
+  pr_diagnostics diagnostics;
+  [%expect
+    {|
+    error: invalid ABI: found `路濫狼á́́`
+        ┌─ unicode.rs:1:8
+      1 │  extern "路濫狼á́́" fn foo() {}
+        │         ^^^^^^^^ invalid ABI
+        = valid ABIs:
+          - aapcs
+          - amdgpu-kernel
+          - C
+          - cdecl
+          - efiapi
+          - fastcall
+          - msp430-interrupt
+          - platform-intrinsic
+          - ptx-kernel
+          - Rust
+          - rust-call
+          - rust-intrinsic
+          - stdcall
+          - system
+          - sysv64
+          - thiscall
+          - unadjusted
+          - vectorcall
+          - win64
+          - x86-interrupt |}]
+;;
+
+let%expect_test "unicode spans" =
+  let source = source "moon_jump.rs" "🐄🌑🐄🌒🐄🌓🐄🌔🐄🌕🐄🌖🐄🌗🐄🌘🐄" in
+  let invalid_start = 1 in
+  let invalid_stop = String.length "🐄" - 1 in
+  let diagnostics =
+    Diagnostic.
+      [ createf
+          ~labels:
+            [ Label.primaryf
+                ~range:(range ~source invalid_start invalid_stop)
+                "Invalid jump"
+            ]
+          Error
+          "Cow may not jump during new moon."
+      ; createf
+          ~labels:
+            [ Label.secondaryf
+                ~range:(range ~source invalid_start (String.length "🐄"))
+                "Cow range does not start at boundary."
+            ]
+          Note
+          "Invalid unicode range"
+      ; createf
+          ~labels:
+            [ Label.secondaryf
+                ~range:(range ~source (String.length "🐄🌑") (String.length "🐄🌑🐄" - 1))
+                "Cow range does not end at boundary"
+            ]
+          Note
+          "Invalid unicode range"
+      ; createf
+          ~labels:
+            [ Label.secondaryf
+                ~range:(range ~source invalid_start (String.length "🐄🌑🐄" - 1))
+                "Cow does not start or end at boundary."
+            ]
+          Note
+          "Invalid unicode range"
+      ]
+  in
+  pr_bad_diagnostics diagnostics;
+  [%expect
+    {|
+    Raised: (Invalid_argument "invalid UTF-8")
+
+    Raised: (Invalid_argument "invalid UTF-8")
+
+    Raised: (Invalid_argument "invalid UTF-8")
+
+    Raised: (Invalid_argument "invalid UTF-8") |}]
 ;;

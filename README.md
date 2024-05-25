@@ -18,10 +18,10 @@ We're still actively working on Grace to support more use cases and improving th
 - 💰 Rich and compact error rendering
 - 🌈 Colored messages (thanks to `Fmt`'s `style`) for ANSI terminals
 - 💪 Written in OCaml
+- 🔠 Unicode support
 
 ### Planned Features
 
-- [ ] Unicode support
 - [ ] LSP integration
 - [ ] Error codes
 - [ ] Accessibility features (improved color options, narratable renderers)

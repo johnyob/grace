@@ -1,18 +1,90 @@
 open! Import
 open! Diagnostic
 
+let margin_length_of_string line_content =
+  (* This is valid for UTF8 as all the whitespace characters we're
+     interested in wrt a 'margin' have a width of 1. *)
+  String.length line_content - String.length (String.lstrip line_content)
+;;
+
+module Utf8 = struct
+  let length s =
+    let decoder = Uutf.decoder ~encoding:`UTF_8 (`String s) in
+    let rec loop acc =
+      match Uutf.decode decoder with
+      | `Uchar _ -> loop (acc + 1)
+      | `End -> acc
+      | `Malformed _ -> raise (Invalid_argument "invalid UTF-8")
+      | `Await -> assert false
+    in
+    loop 0
+  ;;
+end
+
+module type Number = Index
+
+module Int_number = struct
+  module T = struct
+    type t = int [@@deriving compare, hash, sexp]
+  end
+
+  include T
+  include Comparable.Make (T)
+
+  let invariant t = Invariant.invariant [%here] t sexp_of_t (fun () -> assert (t >= 1))
+  let pp = Format.pp_print_int
+  let to_string = Int.to_string
+
+  let of_int t =
+    invariant t;
+    t
+  ;;
+
+  let initial = 1
+
+  let add t off =
+    let t = t + off in
+    invariant t;
+    t
+  ;;
+
+  let sub t off =
+    let t = t - off in
+    invariant t;
+    t
+  ;;
+
+  let diff t1 t2 = t1 - t2
+end
+
+module Line_number = struct
+  include Int_number
+
+  let of_line_index (idx : Line_index.t) = (idx :> int) + 1
+end
+
+module Column_number = struct
+  include Int_number
+
+  let of_byte_index (idx : Byte_index.t) ~sd ~line =
+    let content = Source_reader.(slicei sd (Line.start line) idx) in
+    let length = Utf8.length content in
+    length + 1
+  ;;
+end
+
 module Multi_line_label = struct
   module Id = Int
 
   type t =
     | Top of
         { id : Id.t
-        ; start : Byte_index.t
+        ; start : Column_number.t
         ; priority : Priority.t
         }
     | Bottom of
         { id : Id.t
-        ; stop : Byte_index.t
+        ; stop : Column_number.t
         ; priority : Priority.t
         ; label : Message.t
         }
@@ -27,14 +99,14 @@ module Line = struct
 
   and segment =
     { content : string
-    ; range : Range.t
+    ; length : int
     ; stag : stag option
     }
 
   and t =
-    { start : Byte_index.t
-    ; segments : segment list
+    { segments : segment list
     ; multi_line_labels : Multi_line_label.t list
+    ; margin_length : int
     }
   [@@deriving sexp]
 end
@@ -46,10 +118,12 @@ type block =
 
 and source =
   { source : Source.t
-  ; locus : Line_index.t * Column_index.t
+  ; locus : locus
   ; labels : Label.t list
   ; blocks : block list
   }
+
+and locus = Line_number.t * Column_number.t
 
 and t =
   { severity : Severity.t
@@ -77,17 +151,13 @@ module Of_diagnostic = struct
   ;;
 
   let line_of_range ~sd (line : Source_reader.Line.t) =
+    let content = Source_reader.Line.slice ~sd line in
     { line = line.idx
     ; it =
         Line.
-          { start = Source_reader.Line.start line
-          ; segments =
-              [ { content = Source_reader.Line.slice ~sd line
-                ; stag = None
-                ; range = line.range
-                }
-              ]
+          { segments = [ { content; length = Utf8.length content; stag = None } ]
           ; multi_line_labels = []
+          ; margin_length = margin_length_of_string content
           }
     }
   ;;
@@ -134,7 +204,7 @@ module Of_diagnostic = struct
     then
       Line.
         { content = Source_reader.slicei sd cursor stop
-        ; range = Range.create ~source:(Source_descr.source sd) cursor stop
+        ; length = Byte_index.(diff stop cursor)
         ; stag = None
         }
       :: rev_segments
@@ -198,10 +268,11 @@ module Of_diagnostic = struct
             rev_segments, priority_count, cursor, cursor_msgs)
           else (
             (* otherwise, we create a segment from 'cursor' to 'idx' and set 'cursor' to 'idx' *)
+            let content = Source_reader.slicei sd cursor idx in
             let segment =
               Line.
-                { content = Source_reader.slicei sd cursor idx
-                ; range = Range.create ~source:(Source_descr.source sd) cursor idx
+                { content
+                ; length = Utf8.length content
                 ; stag =
                     Option.(
                       Priority_count.priority priority_count
@@ -225,7 +296,12 @@ module Of_diagnostic = struct
   let line_of_labels ~sd ~line labels multi_line_labels =
     let segments = segments_of_labels ~sd ~line labels in
     { line = line.idx
-    ; it = Line.{ start = Source_reader.Line.start line; segments; multi_line_labels }
+    ; it =
+        Line.
+          { segments
+          ; multi_line_labels
+          ; margin_length = margin_length_of_string (Source_reader.Line.slice ~sd line)
+          }
     }
   ;;
 
@@ -339,7 +415,10 @@ module Of_diagnostic = struct
                 (* Multi-line label that starts *)
                 Line_labels.add_multi_line_label line_labels
                 @@ Multi_line_label.Top
-                     { id; start = label_start; priority = label.priority };
+                     { id
+                     ; start = Column_number.of_byte_index label_start ~line ~sd
+                     ; priority = label.priority
+                     };
                 true)
               else if Byte_index.(label_start < line_start && line_stop < label_stop)
               then (* Multi-line label that goes through this line *)
@@ -350,7 +429,7 @@ module Of_diagnostic = struct
                 Line_labels.add_multi_line_label line_labels
                 @@ Multi_line_label.Bottom
                      { id
-                     ; stop = label_stop
+                     ; stop = Column_number.of_byte_index label_stop ~line ~sd
                      ; priority = label.priority
                      ; label = label.message
                      };
@@ -383,10 +462,7 @@ module Of_diagnostic = struct
       |> Option.value_exn ~here:[%here]
     in
     let line = Source_reader.Line.of_byte_index sd locus_idx in
-    let col_idx =
-      Column_index.of_int Byte_index.(diff locus_idx (Source_reader.Line.start line))
-    in
-    line.idx, col_idx
+    Line_number.of_line_index line.idx, Column_number.of_byte_index locus_idx ~sd ~line
   ;;
 
   let of_diagnostic Diagnostic.{ severity; message; labels; notes } =
