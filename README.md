@@ -19,11 +19,11 @@ We're still actively working on Grace to support more use cases and improving th
 - 🌈 Colored messages (thanks to `Fmt`'s `style`) for ANSI terminals
 - 💪 Written in OCaml
 - 🔠 Unicode support
+- 💯 Error codes
 
 ### Planned Features
 
 - [ ] LSP integration
-- [ ] Error codes
 - [ ] Accessibility features (improved color options, narratable renderers)
 - [ ] HTML renderer
 
@@ -64,6 +64,17 @@ let fizz n =
     }
 ;;
 
+(* Grace provides support for error codes.
+
+   Error codes are arbitrary types with an explicit [code_to_string] function 
+   which converts the code into a short (googlable) error code. This allows 
+   library users to inspect (and match on) certain types of diagnostics. *)
+type code = Incompatible_types
+
+let code_to_string = function
+  | Incompatible_types -> "E001"
+;;
+
 (* Normally locations (ranges) would be taken from AST nodes, but for sake of
    this example we construct them directly. *)
 let diagnostic =
@@ -82,6 +93,7 @@ let diagnostic =
           ; secondaryf ~range:(range 80 85) "this is found to be of type `[> `Fizz]`"
           ; secondaryf ~range:(range 98 103) "this is found to be of type `[> `Buzz]`"
           ]
+      ~code:Incompatible_types
       Error
       "`match` cases have incompatible types")
 ;;
@@ -89,7 +101,7 @@ let diagnostic =
 let () =
   Format.printf
     "%a@."
-    Grace_ansi_renderer.(pp_diagnostic ~config:Config.default)
+    Grace_ansi_renderer.(pp_diagnostic ())
     diagnostic
 ;;
 ```
