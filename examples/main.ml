@@ -1,5 +1,16 @@
 open! Grace
 
+(* Grace provides support for error codes.
+   Instead of simply using strings, Grace stores error codes as arbitrary types (e.g. variants).
+
+   This permits us to define a set of short error codes that are meaningful to the user, while
+   still being able to match on the underlying variant when inspecting diagnostics. *)
+type code = Incompatible_types
+
+let code_to_string = function
+  | Incompatible_types -> "E001"
+;;
+
 (* Grace provides a [Source] API for in-memory representations of sources/files. *)
 let fizz : Source.t =
   `String
@@ -33,13 +44,11 @@ let diagnostic =
           ; secondaryf ~range:(range 80 85) "this is found to be of type `[> `Fizz]`"
           ; secondaryf ~range:(range 98 103) "this is found to be of type `[> `Buzz]`"
           ]
+      ~code:Incompatible_types
       Error
       "`match` cases have incompatible types")
 ;;
 
 let () =
-  Format.printf
-    "%a@."
-    Grace_ansi_renderer.(pp_diagnostic ~config:Config.default)
-    diagnostic
+  Format.printf "%a@." Grace_ansi_renderer.(pp_diagnostic ~code_to_string ()) diagnostic
 ;;
