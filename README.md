@@ -89,7 +89,7 @@ let diagnostic =
 let () =
   Format.printf
     "%a@."
-    Grace_rendering.(Ansi.pp_diagnostic ~config:Config.default)
+    Grace_ansi_renderer.(pp_diagnostic ~config:Config.default)
     diagnostic
 ;;
 ```

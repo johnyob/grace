@@ -1,5 +1,5 @@
 (executable
  (name main)
  (public_name main)
- (libraries core dedent grace grace.rendering)
+ (libraries core dedent grace grace.ansi_renderer)
  (package grace))

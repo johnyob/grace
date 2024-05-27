@@ -1,6 +1,0 @@
-(library
- (name test_rendering)
- (libraries core fmt grace grace.rendering dedent)
- (inline_tests)
- (preprocess
-  (pps ppx_jane)))

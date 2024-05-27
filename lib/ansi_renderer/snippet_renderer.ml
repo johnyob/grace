@@ -647,14 +647,10 @@ let multi_width (snippet : Snippet.t) =
   |> Option.value ~default:0
 ;;
 
-let pp_diagnostic ~config ppf diagnostic =
+let pp_snippet ~config ppf snippet =
   Fmt.set_style_renderer ppf (Config.style_renderer config);
   Format.pp_set_geometry ppf ~max_indent:2 ~margin:Int.max_value;
-  Source_reader.with_reader
-  @@ fun () ->
-  let snippet = Snippet.of_diagnostic diagnostic in
   let line_num_width = line_num_width snippet in
   let multi_width = multi_width snippet in
-  (* print_s [%message "Snippet" (snippet : Snippet.t)]; *)
   pp_snippet ~config ~line_num_width ~multi_width ppf snippet
 ;;
