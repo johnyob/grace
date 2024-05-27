@@ -1,0 +1,6 @@
+(library
+ (name grace_source_reader)
+ (public_name grace.source_reader)
+ (libraries core grace iter core_unix core_unix.bigstring_unix)
+ (preprocess
+  (pps ppx_jane)))

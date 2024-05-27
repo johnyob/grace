@@ -1,0 +1,6 @@
+(library
+ (name test_source_reader)
+ (libraries core fmt grace grace.source_reader)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane)))
