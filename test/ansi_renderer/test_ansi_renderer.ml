@@ -11,22 +11,22 @@ let range ~source start stop =
 ;;
 
 let pr_diagnostics diagnostics =
-  let open Grace_rendering in
+  let open Grace_ansi_renderer in
   (* Disable colors for tests (since expect tests don't support ANSI colors) *)
   let config = Config.{ default with use_ansi = false } in
-  Fmt.(list ~sep:(fun ppf () -> pf ppf "@.@.") (Ansi.pp_diagnostic ~config))
+  Fmt.(list ~sep:(fun ppf () -> pf ppf "@.@.") (pp_diagnostic ~config))
     Fmt.stdout
     diagnostics
 ;;
 
 let pr_bad_diagnostics diagnostics =
-  let open Grace_rendering in
+  let open Grace_ansi_renderer in
   let config = Config.{ default with use_ansi = false } in
   Fmt.(
     list
       ~sep:(fun ppf () -> pf ppf "@.@.")
       (fun ppf diagnostic ->
-        try Ansi.pp_diagnostic ~config ppf diagnostic with
+        try pp_diagnostic ~config ppf diagnostic with
         | exn -> Fmt.pf ppf "Raised: %s" (Exn.to_string exn)))
     Fmt.stdout
     diagnostics

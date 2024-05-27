@@ -1,0 +1,6 @@
+(library
+ (name test_ansi_renderer)
+ (libraries core fmt grace grace.ansi_renderer dedent)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane)))

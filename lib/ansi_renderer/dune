@@ -1,6 +1,6 @@
 (library
- (name grace_rendering)
- (public_name grace.rendering)
+ (name grace_ansi_renderer)
+ (public_name grace.ansi_renderer)
  (libraries core fmt grace grace.source_reader iter uutf)
  (preprocess
   (pps ppx_jane)))
