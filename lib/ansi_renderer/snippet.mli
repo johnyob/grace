@@ -77,16 +77,17 @@ and sources =
   | Compact of (Source.t * locus) list
 
 (** The type of a snippet, an internal representation of a rendered diagnostic. *)
-and t =
+and 'code t =
   { severity : Severity.t (** The severity of the diagnostic. *)
   ; message : Message.t (** The primary message of the diagnostic. *)
+  ; code : 'code option (** The code associated with the diagnostic. *)
   ; sources : sources (** The sources associated with the diagnostic. *)
   ; notes : Message.t list (** The notes of the diagnostic. *)
   }
 [@@deriving sexp]
 
 (** [of_diagnostic diagnostic] returns the ('rich') snippet compiled from the [diagnostic]. *)
-val of_diagnostic : Diagnostic.t -> t
+val of_diagnostic : 'code Diagnostic.t -> 'code t
 
 (** [compact_of_diagnostic diagnostic] returns the 'compact' snippet compiled from the [diagnostic]. *)
-val compact_of_diagnostic : Diagnostic.t -> t
+val compact_of_diagnostic : 'code Diagnostic.t -> 'code t

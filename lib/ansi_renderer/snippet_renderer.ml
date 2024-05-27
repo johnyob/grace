@@ -587,12 +587,20 @@ let pp_source
     pp_block ~config ~severity ~ctxt ppf block)
 ;;
 
-let pp_header ~config ~severity ppf message =
+let pp_code ~config ~code_to_string ~severity ppf code =
+  Fmt.with_style (Style_sheet.header config.styles severity) ppf
+  @@ fun ppf () ->
+  Fmt.(option (any "[" ++ of_to_string code_to_string ++ any "]")) ppf code
+;;
+
+let pp_header ~config ~code_to_string ~severity ~code ppf message =
   Fmt.pf
     ppf
-    "@[<h>%a: %a@]"
+    "@[<h>%a%a: %a@]"
     (pp_severity ~config)
     severity
+    (pp_code ~config ~code_to_string ~severity)
+    code
     (pp_header_message ~config)
     message
 ;;
@@ -606,17 +614,24 @@ let pp_note ~config ~line_num_width ppf note =
     note
 ;;
 
-let pp_rich_snippet ~config ~line_num_width ~multi_width ppf (severity, message, sources) =
-  pp_header ~config ~severity ppf message;
+let pp_rich_snippet
+  ~config
+  ~code_to_string
+  ~line_num_width
+  ~multi_width
+  ppf
+  (severity, message, code, sources)
+  =
+  pp_header ~config ~code_to_string ~severity ~code ppf message;
   if not (List.is_empty sources) then Fmt.newline ppf ();
   Fmt.(list ~sep:Fmt.newline (pp_source ~config ~severity ~line_num_width ~multi_width))
     ppf
     sources
 ;;
 
-let pp_compact_snippet ~config ppf (severity, message, sources) =
+let pp_compact_snippet ~config ~code_to_string ppf (severity, message, code, sources) =
   match sources with
-  | [] -> pp_header ~config ~severity ppf message
+  | [] -> pp_header ~config ~code_to_string ~severity ~code ppf message
   | sources ->
     (Fmt.list ~sep:Fmt.newline
      @@ fun ppf (source, locus) ->
@@ -625,7 +640,7 @@ let pp_compact_snippet ~config ppf (severity, message, sources) =
        "@[<h>%a: %a@]"
        (pp_locus ~source)
        locus
-       (pp_header ~config ~severity)
+       (pp_header ~config ~code_to_string ~severity ~code)
        message)
       ppf
       sources
@@ -673,16 +688,28 @@ let multi_width sources =
     |> Option.value ~default:0
 ;;
 
-let pp_snippet ~config ppf ({ severity; message; sources; notes } : Snippet.t) =
+let pp_snippet
+  ~config
+  ~code_to_string
+  ppf
+  ({ severity; message; code; sources; notes } : 'code Snippet.t)
+  =
   Fmt.set_style_renderer ppf (Config.style_renderer config);
   Format.pp_set_geometry ppf ~max_indent:2 ~margin:Int.max_value;
   let line_num_width = line_num_width sources in
   let multi_width = multi_width sources in
   Fmt.pf ppf "@[<v>";
   (match sources with
-   | Compact sources -> pp_compact_snippet ~config ppf (severity, message, sources)
+   | Compact sources ->
+     pp_compact_snippet ~config ~code_to_string ppf (severity, message, code, sources)
    | Rich sources ->
-     pp_rich_snippet ~config ~line_num_width ~multi_width ppf (severity, message, sources));
+     pp_rich_snippet
+       ~config
+       ~code_to_string
+       ~line_num_width
+       ~multi_width
+       ppf
+       (severity, message, code, sources));
   if not (List.is_empty notes) then Fmt.newline ppf ();
   Fmt.(list ~sep:Fmt.newline (pp_note ~config ~line_num_width)) ppf notes;
   Fmt.pf ppf "@]"
