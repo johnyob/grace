@@ -1,5 +1,9 @@
-open! Import
+open Core
+open Grace
 open Core_unix
+
+let invalid_argf fmt = Format.kasprintf invalid_arg fmt
+let sys_errorf fmt = Format.kasprintf (fun s -> raise (Sys_error s)) fmt
 
 (** A file is abstracted as a (memory-mapped) bigstring *)
 type file =

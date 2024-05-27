@@ -1,6 +1,6 @@
 open! Core
 open! Grace
-open! Grace_rendering
+module Source_reader = Grace_source_reader
 
 let () = Source_reader.init ()
 let foo_content = "foo\nbar\r\n\nbaz"

@@ -1,5 +1,6 @@
 include Core
 include Grace
+module Source_reader = Grace_source_reader
 module Iter = IterLabels
 
 module Fmt = struct
@@ -43,6 +44,3 @@ module List = struct
     loop t ~prev:None
   ;;
 end
-
-let invalid_argf fmt = Format.kasprintf invalid_arg fmt
-let sys_errorf fmt = Format.kasprintf (fun s -> raise (Sys_error s)) fmt
