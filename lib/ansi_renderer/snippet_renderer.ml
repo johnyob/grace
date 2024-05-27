@@ -528,19 +528,27 @@ let pp_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
     pp_multi_line_label ~config ~severity ~ctxt ppf multi_line_label)
 ;;
 
-let pp_locus ~config ~ctxt ~source ppf (line_num, col_num) =
+let pp_locus ~source ppf (line_num, col_num) =
   Fmt.pf
     ppf
-    "@[<h>%*s %a %s:%a:%a@]"
-    ctxt.line_num_width
-    ""
-    (Chars.pp_snippet_start ~config)
-    ()
+    "@[<h>%s:%a:%a@]"
     (Option.value (Source.name source) ~default:"unknown")
     Line_number.pp
     line_num
     Column_number.pp
     col_num
+;;
+
+let pp_source_start ~config ~ctxt ~source ppf locus =
+  Fmt.pf
+    ppf
+    "@[<h>%*s %a %a@]"
+    ctxt.line_num_width
+    ""
+    (Chars.pp_snippet_start ~config)
+    ()
+    (pp_locus ~source)
+    locus
 ;;
 
 let pp_line_gutter ~config ~ctxt ppf () =
@@ -566,10 +574,10 @@ let pp_source
   ~line_num_width
   ~multi_width
   ppf
-  ({ source; blocks; locus; labels = _ } : Snippet.source)
+  ({ source; blocks; locus } : Snippet.source)
   =
   let ctxt = { multi_context = Multi_context.create ~len:multi_width; line_num_width } in
-  pp_locus ~config ~ctxt ~source ppf locus;
+  pp_source_start ~config ~ctxt ~source ppf locus;
   if not (List.is_empty blocks) then Fmt.pf ppf "@.";
   List.iteri blocks ~f:(fun i block ->
     if i <> 0
@@ -589,45 +597,60 @@ let pp_header ~config ~severity ppf message =
     message
 ;;
 
-let pp_note = pp_message
+let pp_note ~config ~line_num_width ppf note =
+  pwibox
+    ~prefix:
+      (Fmt.str_like ppf "%*s %a " line_num_width "" (Chars.pp_note_bullet ~config) ())
+    Message.pp
+    ppf
+    note
+;;
 
-let pp_snippet
-  ~config
-  ~line_num_width
-  ~multi_width
-  ppf
-  Snippet.{ severity; message; sources; notes }
-  =
-  Fmt.pf ppf "@[<v>%a" (pp_header ~config ~severity) message;
-  List.iter sources ~f:(fun file ->
-    Fmt.newline ppf ();
-    pp_source ~config ~severity ~line_num_width ~multi_width ppf file);
-  List.iter notes ~f:(fun note ->
-    Fmt.newline ppf ();
-    pwibox
-      ~prefix:
-        (Fmt.str_like ppf "%*s %a " line_num_width "" (Chars.pp_note_bullet ~config) ())
-      Message.pp
+let pp_rich_snippet ~config ~line_num_width ~multi_width ppf (severity, message, sources) =
+  pp_header ~config ~severity ppf message;
+  if not (List.is_empty sources) then Fmt.newline ppf ();
+  Fmt.(list ~sep:Fmt.newline (pp_source ~config ~severity ~line_num_width ~multi_width))
+    ppf
+    sources
+;;
+
+let pp_compact_snippet ~config ppf (severity, message, sources) =
+  match sources with
+  | [] -> pp_header ~config ~severity ppf message
+  | sources ->
+    (Fmt.list ~sep:Fmt.newline
+     @@ fun ppf (source, locus) ->
+     Fmt.pf
+       ppf
+       "@[<h>%a: %a@]"
+       (pp_locus ~source)
+       locus
+       (pp_header ~config ~severity)
+       message)
       ppf
-      note);
-  Fmt.pf ppf "@]"
+      sources
 ;;
 
-let line_num_width (snippet : Snippet.t) =
-  Int.max
-    (snippet.sources
-     |> List.map ~f:(fun { blocks; _ } ->
-       let { Snippet.start; lines; _ } = List.last_exn blocks in
-       let line_num =
-         Line_number.of_line_index Line_index.(add start (List.length lines))
-       in
-       Line_number.to_string line_num |> String.length)
-     |> List.max_elt ~compare:Int.compare
-     |> Option.value ~default:0)
-    3
+let line_num_width sources =
+  match sources with
+  | Compact _ -> 0
+  | Rich sources ->
+    Int.max
+      (sources
+       |> List.map ~f:(fun { blocks; _ } ->
+         match List.last blocks with
+         | None -> 0
+         | Some { start; lines; _ } ->
+           let line_num =
+             Line_number.of_line_index Line_index.(add start (List.length lines))
+           in
+           Line_number.to_string line_num |> String.length)
+       |> List.max_elt ~compare:Int.compare
+       |> Option.value ~default:0)
+      3
 ;;
 
-let multi_width (snippet : Snippet.t) =
+let multi_width sources =
   let rec count_multi : Snippet.Line.t list -> int = function
     | [] -> 0
     | line :: lines ->
@@ -636,21 +659,31 @@ let multi_width (snippet : Snippet.t) =
         | Bottom _ -> false)
       + count_multi lines
   in
-  snippet.sources
-  |> List.map ~f:(fun { Snippet.blocks; _ } ->
-    let rec loop_blocks : Snippet.block list -> int = function
-      | [] -> 0
-      | { lines; _ } :: blocks -> count_multi lines + loop_blocks blocks
-    in
-    loop_blocks blocks)
-  |> List.max_elt ~compare:Int.compare
-  |> Option.value ~default:0
+  match sources with
+  | Compact _ -> 0
+  | Rich sources ->
+    sources
+    |> List.map ~f:(fun { Snippet.blocks; _ } ->
+      let rec loop_blocks : Snippet.block list -> int = function
+        | [] -> 0
+        | { lines; _ } :: blocks -> count_multi lines + loop_blocks blocks
+      in
+      loop_blocks blocks)
+    |> List.max_elt ~compare:Int.compare
+    |> Option.value ~default:0
 ;;
 
-let pp_snippet ~config ppf snippet =
+let pp_snippet ~config ppf ({ severity; message; sources; notes } : Snippet.t) =
   Fmt.set_style_renderer ppf (Config.style_renderer config);
   Format.pp_set_geometry ppf ~max_indent:2 ~margin:Int.max_value;
-  let line_num_width = line_num_width snippet in
-  let multi_width = multi_width snippet in
-  pp_snippet ~config ~line_num_width ~multi_width ppf snippet
+  let line_num_width = line_num_width sources in
+  let multi_width = multi_width sources in
+  Fmt.pf ppf "@[<v>";
+  (match sources with
+   | Compact sources -> pp_compact_snippet ~config ppf (severity, message, sources)
+   | Rich sources ->
+     pp_rich_snippet ~config ~line_num_width ~multi_width ppf (severity, message, sources));
+  if not (List.is_empty notes) then Fmt.newline ppf ();
+  Fmt.(list ~sep:Fmt.newline (pp_note ~config ~line_num_width)) ppf notes;
+  Fmt.pf ppf "@]"
 ;;

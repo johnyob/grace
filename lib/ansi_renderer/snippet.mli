@@ -65,22 +65,28 @@ type block =
 (** A source consists of multiple blocks within the same {{!type:Source.t} source}. *)
 and source =
   { source : Source.t (** The source. *)
-  ; locus : locus (** The 'locus' position. *)
-  ; labels : Label.t list (** The labels within the source. *)
+  ; locus : locus (** The 'locus' position in the file. *)
   ; blocks : block list
   (** The list of {!type:block}s. The blocks are non-overlapping and sorted. *)
   }
 
 and locus = Line_number.t * Column_number.t
 
+and sources =
+  | Rich of source list
+  | Compact of (Source.t * locus) list
+
 (** The type of a snippet, an internal representation of a rendered diagnostic. *)
 and t =
   { severity : Severity.t (** The severity of the diagnostic. *)
   ; message : Message.t (** The primary message of the diagnostic. *)
-  ; sources : source list (** The sources associated with the diagnostic. *)
+  ; sources : sources (** The sources associated with the diagnostic. *)
   ; notes : Message.t list (** The notes of the diagnostic. *)
   }
 [@@deriving sexp]
 
-(** [of_diagnostic diagnostic] returns the snippet compiled from the [diagnostic]. *)
+(** [of_diagnostic diagnostic] returns the ('rich') snippet compiled from the [diagnostic]. *)
 val of_diagnostic : Diagnostic.t -> t
+
+(** [compact_of_diagnostic diagnostic] returns the 'compact' snippet compiled from the [diagnostic]. *)
+val compact_of_diagnostic : Diagnostic.t -> t

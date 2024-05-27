@@ -14,7 +14,13 @@ let pr_diagnostics diagnostics =
   let open Grace_ansi_renderer in
   (* Disable colors for tests (since expect tests don't support ANSI colors) *)
   let config = Config.{ default with use_ansi = false } in
-  Fmt.(list ~sep:(fun ppf () -> pf ppf "@.@.") (pp_diagnostic ~config))
+  Fmt.(
+    list
+      ~sep:(fun ppf () -> pf ppf "@.@.@.")
+      (fun ppf diagnostic ->
+        pp_diagnostic ~config ppf diagnostic;
+        pf ppf "@.@.";
+        pp_compact_diagnostic ~config ppf diagnostic))
     Fmt.stdout
     diagnostics
 ;;
@@ -43,14 +49,29 @@ let%expect_test "empty" =
     List.map ~f:empty Severity.[ Help; Note; Warning; Error; Bug ]
   in
   pr_diagnostics diagnostics;
-  [%expect {|
+  [%expect
+    {|
     help:
+
+    help:
+
 
     note:
 
+    note:
+
+
     warning:
 
+    warning:
+
+
     error:
+
+    error:
+
+
+    bug:
 
     bug: |}]
 ;;
@@ -100,8 +121,14 @@ let%expect_test "same_line" =
         │      │ first mutable borrow occurs here
         │      first borrow later used by call
 
+    one_line.rs:3:12: error: cannot borrow `v` as mutable more than once at a time
+
+
     error: aborting due to previous error
-        = For more information about this error, try `rustc --explain` |}]
+        = For more information about this error, try `rustc --explain`
+
+    error: aborting due to previous error
+     = For more information about this error, try `rustc --explain` |}]
 ;;
 
 let%expect_test "overlapping" =
@@ -253,6 +280,9 @@ let%expect_test "overlapping" =
         │                                               │         nested `impl Trait` here
         │                                               outer `impl Trait`
 
+    nested_impl_trait.rs:5:56: error: nested `impl Trait` is not allowed
+
+
     error: the type placeholder `_` is not allowed within types on item signatures
         ┌─ typeck_type_placeholder_item.rs:1:18
       1 │  fn fn_test1() -> _ { 5 }
@@ -260,6 +290,9 @@ let%expect_test "overlapping" =
         │                   │
         │                   not allowed in type signatures
         │                   help: replace with the correct return type: `i32`
+
+    typeck_type_placeholder_item.rs:1:18: error: the type placeholder `_` is not allowed within types on item signatures
+
 
     error: the type placeholder `_` is not allowed within types on item signatures
         ┌─ typeck_type_placeholder_item.rs:2:28
@@ -269,6 +302,9 @@ let%expect_test "overlapping" =
         │                         ││  not allowed in type signatures
         │                         │not allowed in type signatures
         │                         help: replace with the correct return type: `(i32, i32)`
+
+    typeck_type_placeholder_item.rs:2:28: error: the type placeholder `_` is not allowed within types on item signatures
+
 
     error: `std::rc::Rc<()>` cannot be sent between threads safely
         ┌─ libstd/thread/mod.rs:5:8
@@ -289,9 +325,21 @@ let%expect_test "overlapping" =
         = note: required because it appears within the type `main::Foo`
         = note: required because it appears within the type `[closure@no_send_res_ports.rs:29:19: 33:6 x:main::Foo]`
 
+    libstd/thread/mod.rs:5:8: error: `std::rc::Rc<()>` cannot be sent between threads safely
+    no_send_res_ports.rs:25:5: error: `std::rc::Rc<()>` cannot be sent between threads safely
+     = help: within `[closure@no_send_res_ports.rs:29:19: 33:6 x:main::Foo]`, the trait `std::marker::Send` is not implemented for `std::rc::Rc<()>`
+     = note: required because it appears within the type `Port<()>`
+     = note: required because it appears within the type `main::Foo`
+     = note: required because it appears within the type `[closure@no_send_res_ports.rs:29:19: 33:6 x:main::Foo]`
+
+
     error: aborting due 5 previous errors
         = Some errors have detailed explanations: ...
-        = For more information about an error, try `rustc --explain` |}]
+        = For more information about an error, try `rustc --explain`
+
+    error: aborting due 5 previous errors
+     = Some errors have detailed explanations: ...
+     = For more information about an error, try `rustc --explain` |}]
 ;;
 
 let%expect_test "same ranges" =
@@ -317,7 +365,9 @@ let%expect_test "same ranges" =
         │      ^
         │      │
         │      Unexpected '{'
-        │      Expected '(' |}]
+        │      Expected '('
+
+    same_range:1:5: error: unexpected token |}]
 ;;
 
 let%expect_test "multiline_overlapping" =
@@ -382,7 +432,10 @@ let%expect_test "multiline_overlapping" =
         │ │ ╰──────────────^ expected enum `Result`, found struct `LineIndexOutOfBoundsError`
       8 │ │            }
         │ ╰────────────' `match` arms have incompatible types
-        = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError` |}]
+        = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError`
+
+    file.rs:4:34: error: match arms have incompatible types
+     = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError` |}]
 ;;
 
 let%expect_test "unicode" =
@@ -429,7 +482,30 @@ let%expect_test "unicode" =
           - unadjusted
           - vectorcall
           - win64
-          - x86-interrupt |}]
+          - x86-interrupt
+
+    unicode.rs:1:8: error: invalid ABI: found `路濫狼á́́`
+     = valid ABIs:
+       - aapcs
+       - amdgpu-kernel
+       - C
+       - cdecl
+       - efiapi
+       - fastcall
+       - msp430-interrupt
+       - platform-intrinsic
+       - ptx-kernel
+       - Rust
+       - rust-call
+       - rust-intrinsic
+       - stdcall
+       - system
+       - sysv64
+       - thiscall
+       - unadjusted
+       - vectorcall
+       - win64
+       - x86-interrupt |}]
 ;;
 
 let%expect_test "unicode spans" =

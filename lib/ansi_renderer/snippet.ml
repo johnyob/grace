@@ -1,5 +1,6 @@
 open! Import
 open! Diagnostic
+module Source_descr = Source_reader.Source_descr
 
 let margin_length_of_string line_content =
   (* This is valid for UTF8 as all the whitespace characters we're
@@ -111,7 +112,10 @@ module Line = struct
   [@@deriving sexp]
 end
 
-type block =
+type rich = R
+and compact = C
+
+and block =
   { start : Line_index.t
   ; lines : Line.t list
   }
@@ -119,23 +123,50 @@ type block =
 and source =
   { source : Source.t
   ; locus : locus
-  ; labels : Label.t list
   ; blocks : block list
   }
 
 and locus = Line_number.t * Column_number.t
 
+and sources =
+  | Rich of source list
+  | Compact of (Source.t * locus) list
+
 and t =
   { severity : Severity.t
   ; message : Message.t
-  ; sources : source list
+  ; sources : sources
   ; notes : Message.t list
   }
 [@@deriving sexp]
 
-module Of_diagnostic = struct
-  module Source_descr = Source_reader.Source_descr
+let locus_of_labels ~sd (labels : Label.t list) =
+  (* The locus is defined as the earliest highest priority position in the the set of labels *)
+  let _, locus_idx =
+    labels
+    |> List.map ~f:(fun label -> label.priority, Range.start label.range)
+    |> List.max_elt ~compare:[%compare: Diagnostic.Priority.t * Byte_index.t]
+    |> Option.value_exn ~here:[%here]
+  in
+  let line = Source_reader.Line.of_byte_index sd locus_idx in
+  Line_number.of_line_index line.idx, Column_number.of_byte_index locus_idx ~sd ~line
+;;
 
+let group_labels_by_source labels =
+  labels
+  |> List.sort_and_group
+       ~compare:
+         (Comparable.lift Source.compare ~f:(fun (label : Label.t) ->
+            Range.source label.range))
+  |> List.map ~f:(fun labels ->
+    (* Invariants:
+       + [List.length labels > 0]
+       + Sources for each label are equal *)
+    let source = Range.source (List.hd_exn labels).range in
+    source, labels)
+;;
+
+module Of_diagnostic = struct
   type 'a with_line =
     { line : Line_index.t
     ; it : 'a
@@ -453,39 +484,35 @@ module Of_diagnostic = struct
     labels |> lines_of_labels ~sd |> add_contextual_lines ~sd |> group
   ;;
 
-  let locus_of_labels ~sd (labels : Label.t list) =
-    (* The locus is defined as the earliest highest priority position in the the set of labels *)
-    let _, locus_idx =
-      labels
-      |> List.map ~f:(fun label -> label.priority, Range.start label.range)
-      |> List.max_elt ~compare:[%compare: Diagnostic.Priority.t * Byte_index.t]
-      |> Option.value_exn ~here:[%here]
-    in
-    let line = Source_reader.Line.of_byte_index sd locus_idx in
-    Line_number.of_line_index line.idx, Column_number.of_byte_index locus_idx ~sd ~line
-  ;;
-
   let of_diagnostic Diagnostic.{ severity; message; labels; notes } =
     let sources =
       labels
-      |> List.sort_and_group
-           ~compare:
-             (Comparable.lift Source.compare ~f:(fun (label : Label.t) ->
-                Range.source label.range))
-      |> List.map ~f:(fun labels ->
-        (* Invariants:
-           + [List.length labels > 0]
-           + Sources for each label are equal *)
-        let source = Range.source (List.hd_exn labels).range in
+      |> group_labels_by_source
+      |> List.map ~f:(fun (source, labels) ->
         let sd = Source_reader.open_source source in
         { source
-        ; labels
         ; locus = locus_of_labels ~sd labels
         ; blocks = block_of_labels ~sd labels
         })
     in
-    { severity; message; notes; sources }
+    { severity; message; notes; sources = Rich sources }
   ;;
 end
 
 let of_diagnostic = Of_diagnostic.of_diagnostic
+
+module Compact_of_diagnostic = struct
+  let of_diagnostic Diagnostic.{ severity; message; labels; notes } =
+    let sources =
+      labels
+      |> group_labels_by_source
+      |> List.map ~f:(fun (source, labels) ->
+        let sd = Source_reader.open_source source in
+        let locus = locus_of_labels ~sd labels in
+        source, locus)
+    in
+    { severity; message; notes; sources = Compact sources }
+  ;;
+end
+
+let compact_of_diagnostic = Compact_of_diagnostic.of_diagnostic
