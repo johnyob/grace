@@ -112,9 +112,9 @@ module Chars = struct
     }
 
   let ascii =
-    { snippet_start = "┌─"
-    ; source_border_left = "│"
-    ; source_border_left_break = "·"
+    { snippet_start = "-->"
+    ; source_border_left = "|"
+    ; source_border_left_break = "."
     ; note_bullet = "="
     ; single_primary_caret = "^"
     ; single_secondary_caret = "-"
@@ -122,12 +122,12 @@ module Chars = struct
     ; multi_primary_caret_end = "^"
     ; multi_secondary_caret_start = "\'"
     ; multi_secondary_caret_end = "\'"
-    ; multi_top_left = "╭"
-    ; multi_top = "─"
-    ; multi_bottom_left = "╰"
-    ; multi_bottom = "─"
-    ; multi_left = "│"
-    ; pointer_left = "│"
+    ; multi_top_left = "/"
+    ; multi_top = "-"
+    ; multi_bottom_left = "\\"
+    ; multi_bottom = "-"
+    ; multi_left = "|"
+    ; pointer_left = "|"
     }
   ;;
 
