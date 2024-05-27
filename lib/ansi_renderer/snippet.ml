@@ -112,10 +112,7 @@ module Line = struct
   [@@deriving sexp]
 end
 
-type rich = R
-and compact = C
-
-and block =
+type block =
   { start : Line_index.t
   ; lines : Line.t list
   }
@@ -132,9 +129,10 @@ and sources =
   | Rich of source list
   | Compact of (Source.t * locus) list
 
-and t =
+and 'code t =
   { severity : Severity.t
   ; message : Message.t
+  ; code : 'code option
   ; sources : sources
   ; notes : Message.t list
   }
@@ -484,7 +482,7 @@ module Of_diagnostic = struct
     labels |> lines_of_labels ~sd |> add_contextual_lines ~sd |> group
   ;;
 
-  let of_diagnostic Diagnostic.{ severity; message; labels; notes } =
+  let of_diagnostic Diagnostic.{ severity; message; code; labels; notes } =
     let sources =
       labels
       |> group_labels_by_source
@@ -495,14 +493,14 @@ module Of_diagnostic = struct
         ; blocks = block_of_labels ~sd labels
         })
     in
-    { severity; message; notes; sources = Rich sources }
+    { severity; message; code; notes; sources = Rich sources }
   ;;
 end
 
 let of_diagnostic = Of_diagnostic.of_diagnostic
 
 module Compact_of_diagnostic = struct
-  let of_diagnostic Diagnostic.{ severity; message; labels; notes } =
+  let of_diagnostic Diagnostic.{ severity; message; code; labels; notes } =
     let sources =
       labels
       |> group_labels_by_source
@@ -511,7 +509,7 @@ module Compact_of_diagnostic = struct
         let locus = locus_of_labels ~sd labels in
         source, locus)
     in
-    { severity; message; notes; sources = Compact sources }
+    { severity; message; code; notes; sources = Compact sources }
   ;;
 end
 

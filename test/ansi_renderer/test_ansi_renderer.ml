@@ -18,9 +18,9 @@ let pr_diagnostics diagnostics =
     list
       ~sep:(fun ppf () -> pf ppf "@.@.@.")
       (fun ppf diagnostic ->
-        pp_diagnostic ~config ppf diagnostic;
+        pp_diagnostic ~config () ppf diagnostic;
         pf ppf "@.@.";
-        pp_compact_diagnostic ~config ppf diagnostic))
+        pp_compact_diagnostic ~config () ppf diagnostic))
     Fmt.stdout
     diagnostics
 ;;
@@ -32,7 +32,7 @@ let pr_bad_diagnostics diagnostics =
     list
       ~sep:(fun ppf () -> pf ppf "@.@.")
       (fun ppf diagnostic ->
-        try pp_diagnostic ~config ppf diagnostic with
+        try pp_diagnostic ~config () ppf diagnostic with
         | exn -> Fmt.pf ppf "Raised: %s" (Exn.to_string exn)))
     Fmt.stdout
     diagnostics
@@ -44,7 +44,12 @@ let%expect_test "empty" =
   let diagnostics =
     let empty severity =
       Diagnostic.
-        { severity; message = (fun ppf -> Fmt.pf ppf ""); labels = []; notes = [] }
+        { severity
+        ; message = (fun ppf -> Fmt.pf ppf "")
+        ; labels = []
+        ; notes = []
+        ; code = None
+        }
     in
     List.map ~f:empty Severity.[ Help; Note; Warning; Error; Bug ]
   in

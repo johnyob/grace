@@ -145,12 +145,13 @@ module Label : sig
 end
 
 (** The type of diagnostics. *)
-type t =
+type 'code t =
   { severity : Severity.t (** The overall severity of the diagnostic. *)
   ; message : Message.t
   (** The main message associated with the diagnostic. These should not include control characters (such as the newline character [\n]).
       To support compact rendering, the message should be specific enough to make sense on its own, without the additional context provided
       by labels and notes. *)
+  ; code : 'code option (** The (optional) error code assicoated with the diagnostic *)
   ; labels : Label.t list
   (** Labels that describe the cause of the diagnostic. The order of the labels has no meaning,
       Grace's rendering engine will determine the order they appear. *)
@@ -162,18 +163,27 @@ type t =
 (** [create severity message] constructs a diagnostic with the [message].
 
     @param notes additional notes associated with the primary cause of the diagnostic.
-    @param labels used to describe the cause of the diagnostic. *)
-val create : ?notes:Message.t list -> ?labels:Label.t list -> Severity.t -> Message.t -> t
+    @param labels used to describe the cause of the diagnostic.
+    @param code the error code of the diagnostic. *)
+val create
+  :  ?notes:Message.t list
+  -> ?labels:Label.t list
+  -> ?code:'code
+  -> Severity.t
+  -> Message.t
+  -> 'code t
 
 (** [createf severity fmt ...] formats a message and constructs a diagnostic.
 
     @param notes additional notes associated with the primary cause of the diagnostic.
-    @param labels used to describe the cause of the diagnostic. *)
+    @param labels used to describe the cause of the diagnostic.
+    @param code the error code of the diagnostic. *)
 val createf
   :  ?notes:Message.t list
   -> ?labels:Label.t list
+  -> ?code:'code
   -> Severity.t
-  -> ('a, t) format
+  -> ('a, 'code t) format
   -> 'a
 
 (** [kcreatef kont severity fmt ...] is equivalent to [kont (createf severity fmt ...)].
@@ -183,7 +193,8 @@ val createf
 val kcreatef
   :  ?notes:Message.t list
   -> ?labels:Label.t list
-  -> (t -> 'b)
+  -> ?code:'code
+  -> ('code t -> 'b)
   -> Severity.t
   -> ('a, 'b) format
   -> 'a

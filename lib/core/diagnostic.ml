@@ -113,22 +113,23 @@ module Label = struct
   let ksecondaryf = kcreatef ~priority:Secondary
 end
 
-type t =
+type 'code t =
   { severity : Severity.t
   ; message : Message.t
+  ; code : 'code option
   ; labels : Label.t list
   ; notes : Message.t list
   }
 [@@deriving sexp]
 
-let create ?(notes = []) ?(labels = []) severity message =
-  { notes; labels; severity; message }
+let create ?(notes = []) ?(labels = []) ?code severity message =
+  { notes; labels; severity; message; code }
 ;;
 
-let createf ?notes ?labels severity fmt =
-  fmt |> Message.kcreatef @@ create ?notes ?labels severity
+let createf ?notes ?labels ?code severity fmt =
+  fmt |> Message.kcreatef @@ create ?notes ?labels ?code severity
 ;;
 
-let kcreatef ?notes ?labels kont severity fmt =
-  fmt |> Message.kcreatef @@ fun msg -> kont (create ?notes ?labels severity msg)
+let kcreatef ?notes ?labels ?code kont severity fmt =
+  fmt |> Message.kcreatef @@ fun msg -> kont (create ?notes ?labels ?code severity msg)
 ;;
