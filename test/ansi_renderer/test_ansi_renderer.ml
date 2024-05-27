@@ -424,7 +424,7 @@ let%expect_test "multiline_overlapping" =
     {|
     error: match arms have incompatible types
         ┌─ file.rs:4:34
-      1 │ ╭────        match line_index.compare(self.last_line_index()) {
+      1 │ ╭            match line_index.compare(self.last_line_index()) {
       2 │ │                Ordering::Less => Ok(self.line_starts()[line_index.to_usize()]),
         │ │                                  --------------------------------------------- this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
       3 │ │                Ordering::Equal => Ok(self.source_span().end()),

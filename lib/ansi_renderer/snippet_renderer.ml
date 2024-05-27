@@ -93,7 +93,7 @@ let pp_message ~(config : Config.t) ~severity ~priority ppf message =
 ;;
 
 type multi_kind =
-  [ `Top
+  [ `Top of [ `Unique | `Non_unique ]
   | `Vertical
   | `Bottom
   ]
@@ -110,7 +110,7 @@ module Multi_context = struct
 
   let length t = Option_array.length t.gutters
 
-  let def t ~multi_id ~priority prologue =
+  let def t ~multi_id ~top_kind ~priority prologue =
     assert (not (Hashtbl.mem t.bindings multi_id));
     let gutter, _ =
       (* Find the next free available gutter (one such gutter *must* exist!) *)
@@ -120,7 +120,7 @@ module Multi_context = struct
     in
     Hashtbl.set t.bindings ~key:multi_id ~data:gutter;
     (* Set gutter to `Top *)
-    Option_array.set_some t.gutters gutter (priority, `Top);
+    Option_array.set_some t.gutters gutter (priority, `Top top_kind);
     (* Execute 'prologue' for multi-line label *)
     prologue ();
     (* Set gutter to `Vertical *)
@@ -143,7 +143,7 @@ end
 let pp_multi_vertline ~(config : Config.t) ~severity ~priority ppf kind =
   let gutter =
     match kind with
-    | `Top -> config.chars.multi_top_left
+    | `Top (`Unique | `Non_unique) -> config.chars.multi_top_left
     | `Vertical -> config.chars.multi_left
     | `Bottom -> config.chars.multi_bottom_left
   in
@@ -152,7 +152,10 @@ let pp_multi_vertline ~(config : Config.t) ~severity ~priority ppf kind =
 
 let pp_multi_underline ~(config : Config.t) ~severity ~priority ppf kind =
   match kind with
-  | `Top -> Chars.pp_multi_top ~config ~severity ~priority ppf ()
+  | `Top `Non_unique -> Chars.pp_multi_top ~config ~severity ~priority ppf ()
+  | `Top `Unique ->
+    (* For unique multi-lines, the underline is removed *)
+    Fmt.sp ppf ()
   | `Bottom -> Chars.pp_multi_bottom ~config ~severity ~priority ppf ()
   | `Vertical -> Fmt.sp ppf ()
 ;;
@@ -276,7 +279,7 @@ module Multi_line_label = struct
   ;;
 
   let pp_top ~config ~severity ppf (width, priority) =
-    pp_underlines ~config ~severity ~priority ~width ppf `Top;
+    pp_underlines ~config ~severity ~priority ~width ppf (`Top `Non_unique);
     Chars.pp_multi_caret_start ~config ~severity ~priority ppf ()
   ;;
 
@@ -298,7 +301,8 @@ module Multi_line_label = struct
     | Some mll ->
       (match mll with
        | Top { id = multi_id; priority; _ } ->
-         Multi_context.def ctxt.multi_context ~multi_id ~priority @@ fun () -> pp ppf x
+         Multi_context.def ctxt.multi_context ~multi_id ~top_kind:`Unique ~priority
+         @@ fun () -> pp ppf x
        | _ -> assert false)
     | None -> pp ppf x
   ;;
@@ -316,7 +320,7 @@ module Multi_line_label = struct
         (* [-2] since we want a [-1] offset and [stop] is a column number (starting at 1) *)
         ((stop :> int) - 2, priority, label)
     | Top { id; start; priority } ->
-      Multi_context.def ctxt.multi_context ~multi_id:id ~priority
+      Multi_context.def ctxt.multi_context ~multi_id:id ~top_kind:`Non_unique ~priority
       @@ fun () ->
       pp_multi_lines ~config ~severity ppf ctxt.multi_context;
       (* [-1] since [start] is a column number (starting at 1) *)
