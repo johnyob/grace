@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ocaml/setup-ocaml@v2
         with:
-          ocaml-compiler: ocaml-base-compiler.4.14.1
+          ocaml-compiler: ocaml-base-compiler.4.14.0
 
       - name: Install ocamlformat
         run: make install-ocamlformat
@@ -43,7 +43,10 @@ jobs:
           - macos-latest
           - ubuntu-latest
         ocaml-compiler:
-          - ocaml-base-compiler.4.14.1
+          - ocaml-base-compiler.4.14.0
+          - ocaml-base-compiler.5.0.0
+          - ocaml-base-compiler.5.1.0
+          - ocaml-base-compiler.5.2.0
     steps:
       - uses: actions/checkout@v4
 
