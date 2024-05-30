@@ -19,6 +19,8 @@
  (synopsis
   "A fancy diagnostics library that allows your compilers to exit with grace")
  (depends
+  (ocaml
+   (>= 4.14.0))
   dune
   core
   ppx_jane
@@ -27,4 +29,5 @@
   dedent
   iter
   core_unix
-  uutf))
+  uutf
+  ppx_optcomp))

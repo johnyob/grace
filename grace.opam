@@ -9,6 +9,7 @@ license: "MIT"
 homepage: "https://github.com/johnyob/grace"
 bug-reports: "https://github.com/johnyob/grace/issues"
 depends: [
+  "ocaml" {>= "4.14.0"}
   "dune" {>= "3.4"}
   "core"
   "ppx_jane"
@@ -17,6 +18,7 @@ depends: [
   "iter"
   "core_unix"
   "uutf"
+  "ppx_optcomp"
   "odoc" {with-doc}
 ]
 build: [
