@@ -281,7 +281,9 @@ module Of_diagnostic = struct
             (idx, priority, start_or_stop)
           ->
           (* If the next point is at the current cursor ... *)
-          if Byte_index.(cursor = idx)
+          if Byte_index.(cursor = idx) &&  Byte_index.(idx < (Source_reader.Line.stop line))
+          (* TODO: the extra condition is to handle the case where the
+             position is at the very end of the line. Probably there is a better fix. *)
           then (
             let priority_count, cursor_msgs =
               match start_or_stop with
@@ -297,7 +299,8 @@ module Of_diagnostic = struct
             rev_segments, priority_count, cursor, cursor_msgs)
           else (
             (* otherwise, we create a segment from 'cursor' to 'idx' and set 'cursor' to 'idx' *)
-            let content = Source_reader.slicei sd cursor idx in
+            let content = 
+              Source_reader.slicei sd cursor idx in
             let segment =
               Line.
                 { content
@@ -311,8 +314,11 @@ module Of_diagnostic = struct
             let priority_count, cursor_labels =
               match start_or_stop with
               | `Start msg ->
+                Format.eprintf "start@.";
                 Priority_count.start priority_count ~priority, [ priority, msg ]
-              | `Stop -> Priority_count.stop priority_count ~priority, []
+              | `Stop ->
+                Format.eprintf "stop@.";
+                 Priority_count.stop priority_count ~priority, []
             in
             segment :: rev_segments, priority_count, idx, cursor_labels))
     in

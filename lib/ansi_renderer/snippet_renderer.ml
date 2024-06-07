@@ -370,7 +370,10 @@ module Inline_labels = struct
       (* Print spaces up until [range] *)
       Fmt.sps Column_number.(diff offset !cursor) ppf ();
       (* Print carets *)
-      Fmt.(repeat ~width:length @@ Chars.pp_caret ~config ~severity ~priority) ppf ();
+          (* TODO: the size of the carret should be at least one. It
+             is 0 when the initial position is the last position on
+             the line. *)
+      Fmt.(repeat ~width:(max 1 length) @@ Chars.pp_caret ~config ~severity ~priority) ppf ();
       (* Update cursor to be stop *)
       cursor := Column_number.(add offset length)
     in
