@@ -174,5 +174,5 @@ let style_renderer t = if t.use_ansi then `Ansi_tty else `None
 
 let default =
   let styles = if no_color then Style_sheet.(no_color default) else Style_sheet.default in
-  { chars = Chars.unicode; styles; use_ansi = is_rich_term }
+  { chars = Chars.unicode; styles; use_ansi = is_rich_term}
 ;;
