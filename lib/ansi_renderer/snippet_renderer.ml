@@ -370,7 +370,11 @@ module Inline_labels = struct
       (* Print spaces up until [range] *)
       Fmt.sps Column_number.(diff offset !cursor) ppf ();
       (* Print carets *)
-      Fmt.(repeat ~width:length @@ Chars.pp_caret ~config ~severity ~priority) ppf ();
+      (* FIXME: This max 1 is to handle when the segment is empty.
+         This only occurs with special zero-width segments (like EOL or EOF) *)
+      Fmt.(repeat ~width:(max 1 length) @@ Chars.pp_caret ~config ~severity ~priority)
+        ppf
+        ();
       (* Update cursor to be stop *)
       cursor := Column_number.(add offset length)
     in
