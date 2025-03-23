@@ -1,3 +1,7 @@
+## Unreleased
+
+* fix(core): use `Format.pp_infinity` in `Message.to_string` for OCaml >5.2 ([#40](https://github.com/johnyob/grace/pull/40)
+
 ## 0.2.0 (2024-05-28)
 
 * fix(renderer): remove uncessary underlines when printing a unique 'multi-line `Top` marker' ([#31](https://github.com/johnyob/grace/pull/31))
