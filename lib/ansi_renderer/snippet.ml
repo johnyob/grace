@@ -272,6 +272,7 @@ module Of_diagnostic = struct
          + A cursor -- the current byte position we're in the interval set
          + A list of labels starting at the cursor ('cursor labels')
       *)
+      let eol = Source_reader.Line.stop line in
       List.fold_left
         points
         ~init:([], Priority_count.zero, Source_reader.Line.start line, [])
@@ -280,8 +281,9 @@ module Of_diagnostic = struct
             (rev_segments, priority_count, cursor, cursor_labels)
             (idx, priority, start_or_stop)
           ->
-          (* If the next point is at the current cursor ... *)
-          if Byte_index.(cursor = idx)
+          (* If the next point is at the current cursor and the cursor is before the
+             end of the line ... *)
+          if Byte_index.(cursor = idx) && Byte_index.(idx < eol)
           then (
             let priority_count, cursor_msgs =
               match start_or_stop with
