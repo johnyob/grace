@@ -39,7 +39,7 @@ Users of `dune` can then use this library by adding the appropriate libraries:
 ```
 (library
  ...
- (libraries grace grace.rendering ...))
+ (libraries grace grace.ansi_renderer ...))
 ```
 
 ## Usage
