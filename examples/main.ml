@@ -50,5 +50,8 @@ let diagnostic =
 ;;
 
 let () =
-  Format.printf "%a@." Grace_ansi_renderer.(pp_diagnostic ~code_to_string ()) diagnostic
+  Format.printf
+    "%a@."
+    (Grace_ansi_renderer.pp_diagnostic ?config:None ~code_to_string)
+    diagnostic
 ;;

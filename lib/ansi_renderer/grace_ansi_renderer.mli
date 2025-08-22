@@ -1,14 +1,17 @@
 open Grace
 module Config = Config
 
-val pp_diagnostic
-  :  ?config:Config.t
-  -> ?code_to_string:('code -> string)
-  -> unit
-  -> 'code Diagnostic.t Fmt.t
+type ('code, 'r) with_params :=
+  ?config:Config.t -> ?code_to_string:('code -> string) -> 'r
 
-val pp_compact_diagnostic
-  :  ?config:Config.t
-  -> ?code_to_string:('code -> string)
-  -> unit
-  -> 'code Diagnostic.t Fmt.t
+val pp_diagnostic : ('code, 'code Diagnostic.t Fmt.t) with_params
+val pp_compact_diagnostic : ('code, 'code Diagnostic.t Fmt.t) with_params
+val output_diagnostic : ('code, Out_channel.t -> 'code Diagnostic.t -> unit) with_params
+
+val output_compact_diagnostic
+  : ('code, Out_channel.t -> 'code Diagnostic.t -> unit) with_params
+
+val pr_diagnostic : ('code, 'code Diagnostic.t -> unit) with_params
+val pr_compact_diagnostic : ('code, 'code Diagnostic.t -> unit) with_params
+val epr_diagnostic : ('code, 'code Diagnostic.t -> unit) with_params
+val epr_compact_diagnostic : ('code, 'code Diagnostic.t -> unit) with_params

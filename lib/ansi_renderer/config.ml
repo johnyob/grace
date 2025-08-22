@@ -155,7 +155,7 @@ end
 type t =
   { chars : Chars.t
   ; styles : Style_sheet.t
-  ; use_ansi : bool
+  ; use_ansi : bool option
   }
 
 let no_color =
@@ -165,16 +165,14 @@ let no_color =
   | _ -> true
 ;;
 
-let is_rich_term =
-  match Sys.getenv "TERM" with
-  | exception Not_found -> false
-  | "" | "dumb" -> false
-  | _ -> true
+let style_renderer t =
+  t.use_ansi
+  |> Option.map (function
+    | true -> `Ansi_tty
+    | false -> `None)
 ;;
-
-let style_renderer t = if t.use_ansi then `Ansi_tty else `None
 
 let default =
   let styles = if no_color then Style_sheet.(no_color default) else Style_sheet.default in
-  { chars = Chars.unicode; styles; use_ansi = is_rich_term }
+  { chars = Chars.unicode; styles; use_ansi = None }
 ;;
