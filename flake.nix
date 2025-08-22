@@ -4,10 +4,13 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
+
+    # Linting
     treefmt = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    git-hooks.url = "github:cachix/git-hooks.nix";
 
     # OCaml overlay
     ocaml-overlay = {
@@ -43,6 +46,24 @@
           default = grace;
         };
 
+        checks = {
+          grace = grace.overrideAttrs (old: {
+            name = "check-${old.name}";
+            doCheck = true;
+          });
+
+          pre-commit-check = git-hooks.lib.${system}.run {
+            src = ./.;
+            hooks = {
+              commitizen.enable = true;
+
+              # Configure treefmt to use the above treefmt config
+              treefmt.enable = true;
+              treefmt.package = fmt.config.build.wrapper;
+            };
+          };
+        };
+
         formatter = fmt.config.build.wrapper;
 
         devShells.default = pkgs.mkShell {
@@ -54,6 +75,7 @@
             # Formatters
             alejandra
             ocamlformat
+            commitizen
 
             # OCaml devenv
             ocamlPackages.utop
@@ -63,6 +85,17 @@
             ocamlPackages.ocaml
             ocamlPackages.dune
           ];
+        };
+
+        apps.ci-cz-check = {
+          type = "app";
+          program = let
+            czCheck = pkgs.writeShellScript "cz-check.sh" ''
+              set -e
+              ${pkgs.commitizen}/bin/cz check --rev-range origin/main..
+            '';
+          in
+            builtins.toString czCheck;
         };
       });
 }
