@@ -1,0 +1,57 @@
+name: Opam Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+ build:
+    name: Build and test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        ocaml-compiler:
+          - ocaml-base-compiler.4.14.0
+          - ocaml-base-compiler.5.0.0
+          - ocaml-base-compiler.5.1.0
+          - ocaml-base-compiler.5.2.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use OCaml ${{ matrix.ocaml-compiler }}
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.opam
+            $GITHUB_WORKSPACE/_opam
+          key: opam-${{ matrix.os }}-${{ matrix.ocaml-compiler }}-${{ hashFiles('*.opam') }}
+
+      - name: Install opam dependencies
+        run: opam install --deps-only --with-test .
+
+      - name: Build project
+        run: opam exec -- dune build @install
+
+      - name: Run tests
+        run: opam exec -- dune test
+
+      - name: Save opam cache 
+        uses: actions/cache/restore@v4
+        with: 
+          path: | 
+            ~/.opam 
+            $GITHUB_WORKSPACE/_opam 
+          key: opam-${{ matrix.os }}-${{ matrix.ocaml-compiler }}-${{ hashFiles('*.opam') }}
+
+

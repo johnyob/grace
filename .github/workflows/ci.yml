@@ -1,65 +1,30 @@
 name: Continuous Integration
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  push:
     branches: [main]
 
   workflow_dispatch:
 
 jobs:
-  commitlint:
-    name: Lint commit messages
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: wagoid/commitlint-github-action@v5
-
-  fmt:
-    name: Format
-    needs: [commitlint]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: ocaml-base-compiler.4.14.0
-
-      - name: Install ocamlformat
-        run: make install-ocamlformat
-
-      - name: Format code
-        run: opam exec -- dune build @fmt
-
   build:
-    name: Build and test
-    needs: [fmt]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - macos-latest
-          - ubuntu-latest
-        ocaml-compiler:
-          - ocaml-base-compiler.4.14.0
-          - ocaml-base-compiler.5.0.0
-          - ocaml-base-compiler.5.1.0
-          - ocaml-base-compiler.5.2.0
+    name: Build
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Use OCaml ${{ matrix.ocaml-compiler }}
-        uses: ocaml/setup-ocaml@v3
+      - uses: actions/checkout@v5
+        with: 
+          fetch-depth: 0
+      - uses: cachix/install-nix-action@v30
+      - uses: cachix/cachix-action@v16 
         with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          name: ocaml-grace 
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - run: nix --version
 
-      - name: Install opam dependencies
-        run: opam install --deps-only --with-test .
+      - name: Lint commits 
+        run: nix --accept-flake-config run .#ci-cz-check
 
-      - name: Build project
-        run: opam exec -- dune build @install
-
-      - name: Run tests
-        run: opam exec -- dune test
+      - name: Build and Check 
+        run: nix --accept-flake-config flake check -j auto
+      
