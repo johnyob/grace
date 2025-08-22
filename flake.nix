@@ -66,26 +66,32 @@
 
         formatter = fmt.config.build.wrapper;
 
-        devShells.default = pkgs.mkShell {
-          name = "grace-dev-shell";
+        devShells.default = let
+          pre-commit-check = self.checks.${system}.pre-commit-check;
+        in
+          pkgs.mkShell {
+            name = "grace-dev-shell";
 
-          inputsFrom = [grace];
+            inputsFrom = [grace];
+            inherit (pre-commit-check) shellHook;
 
-          buildInputs = with pkgs; [
-            # Formatters
-            alejandra
-            ocamlformat
-            commitizen
+            buildInputs = with pkgs;
+              [
+                # Formatters
+                alejandra
+                ocamlformat
+                commitizen
 
-            # OCaml devenv
-            ocamlPackages.utop
-            ocamlPackages.ocaml-lsp
-            ocamlPackages.merlin
-            ocamlPackages.merlin-lib
-            ocamlPackages.ocaml
-            ocamlPackages.dune
-          ];
-        };
+                # OCaml devenv
+                ocamlPackages.utop
+                ocamlPackages.ocaml-lsp
+                ocamlPackages.merlin
+                ocamlPackages.merlin-lib
+                ocamlPackages.ocaml
+                ocamlPackages.dune
+              ]
+              ++ pre-commit-check.enabledPackages;
+          };
 
         apps.ci-cz-check = {
           type = "app";

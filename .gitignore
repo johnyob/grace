@@ -34,3 +34,6 @@ TODO.md
 
 # node modules
 node_modules
+
+# pre-commit-hooks 
+/.pre-commit-config.yaml
