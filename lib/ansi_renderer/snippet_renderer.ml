@@ -696,7 +696,9 @@ let pp_snippet
       ppf
       ({ severity; message; code; sources; notes } : 'code Snippet.t)
   =
-  Fmt.set_style_renderer ppf (Config.style_renderer config);
+  Fmt.set_style_renderer
+    ppf
+    (Config.style_renderer config |> Option.value ~default:`Ansi_tty);
   Format.pp_set_geometry ppf ~max_indent:2 ~margin:(Format.pp_infinity - 1);
   let line_num_width = line_num_width sources in
   let multi_width = multi_width sources in
@@ -715,4 +717,22 @@ let pp_snippet
   if not (List.is_empty notes) then Fmt.newline ppf ();
   Fmt.(list ~sep:Fmt.newline (pp_note ~config ~line_num_width)) ppf notes;
   Fmt.pf ppf "@]"
+;;
+
+let output_snippet ~config ~code_to_string oc snippet =
+  let ppf = Fmt_tty.setup ?style_renderer:(Config.style_renderer config) oc in
+  pp_snippet ~config ~code_to_string ppf snippet
+;;
+
+let pr_snippet ~config ~code_to_string snippet =
+  output_snippet ~config ~code_to_string Out_channel.stdout snippet
+;;
+
+let epr_snippet ~config ~code_to_string snippet =
+  output_snippet ~config ~code_to_string Out_channel.stderr snippet
+;;
+
+let pp_snippet ~config ~code_to_string ppf snippet =
+  Fmt.set_style_renderer ppf (Config.style_renderer config |> Option.value ~default:`None);
+  pp_snippet ~config ~code_to_string ppf snippet
 ;;
