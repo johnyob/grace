@@ -234,10 +234,12 @@ let pp_line_break ~config ~severity ~ctxt ppf () =
     ctxt.multi_context
 ;;
 
+let split_lines_nonempty s = if String.is_empty s then [ "" ] else String.split_lines s
+
 (* prefixed box *)
 let pbox ~prefix pp ppf x =
   let s = Fmt.str_like ppf "%a" pp x in
-  let lines = String.split_lines s in
+  let lines = split_lines_nonempty s in
   let nlines = List.length lines in
   List.iteri lines ~f:(fun i line ->
     Fmt.pf ppf "@[<h>%s%s@]" prefix line;
@@ -247,7 +249,7 @@ let pbox ~prefix pp ppf x =
 (* prefixed-with-indent box *)
 let pwibox ~prefix pp ppf x =
   let s = Fmt.str_like ppf "%a" pp x in
-  let lines = String.split_lines s in
+  let lines = split_lines_nonempty s in
   let nlines = List.length lines in
   let nprefix = String.length prefix in
   List.iteri lines ~f:(fun i line ->

@@ -564,3 +564,37 @@ let%expect_test "unicode spans" =
 
     Raised: (Invalid_argument "invalid UTF-8") |}]
 ;;
+
+let%expect_test "multi-line empty messages" =
+  let source =
+    source
+      "rigid_variable_escape.ml"
+      {|
+      > let escape = fun f -> 
+      >   fun (type a) -> 
+      >     (f : a -> a)
+      > ;;
+      |}
+  in
+  let diagnostics =
+    Diagnostic.
+      [ createf
+          ~labels:[ Label.primaryf ~range:(range ~source 24 56) "" ]
+          Error
+          "generic type variable `a` escapes its scope"
+      ]
+  in
+  pr_diagnostics diagnostics;
+  [%expect
+    {|
+    error: generic type variable `a` escapes its scope
+        ┌─ rigid_variable_escape.ml:2:3
+      1 │    let escape = fun f ->
+      2 │ ╭    fun (type a) ->
+      3 │ │      (f : a -> a)
+        │ ╰─────────────────^
+      4 │    ;;
+
+    rigid_variable_escape.ml:2:3: error: generic type variable `a` escapes its scope
+    |}]
+;;
