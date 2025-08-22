@@ -18,32 +18,32 @@ install-switch:
 
 .PHONY: build
 build:
-	opam exec -- dune build
+	dune build
 
 .PHONY: install
 install: all 
-	opam exec -- dune install --root .
+	dune install --root .
 
 .PHONY: test
 test:
-	opam exec -- dune runtest
+	dune runtest
 
 .PHONY: clean
 clean:
-	opam exec -- dune clean
+	dune clean
 
 .PHONY: doc
 doc:
-	opam exec -- dune build @doc
+	dune build @doc
 
 .PHONY: fmt
 fmt:
-	opam exec -- dune fmt
+	nix fmt
 
 .PHONY: watch
 watch:
-	opam exec -- dune build @run -w --force --no-buffer
+	dune build @run -w --force --no-buffer
 
 .PHONY: utop
 utop:
-	opam exec -- dune utop
+	dune utop
