@@ -193,8 +193,8 @@ let clear () =
 let with_reader ?line_starts_fn f =
   Fun.protect
     (fun () ->
-      init ?line_starts_fn ();
-      f ())
+       init ?line_starts_fn ();
+       f ())
     ~finally:clear
 ;;
 

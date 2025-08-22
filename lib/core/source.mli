@@ -7,12 +7,12 @@
 (** A reader denotes an arbitrary byte source (potentially backed by a file, buffer, socket, etc). *)
 type reader =
   { id : int
-  (** The unique identifier of the reader. Equality, comparison, hashing are all performed on this identifier. *)
+    (** The unique identifier of the reader. Equality, comparison, hashing are all performed on this identifier. *)
   ; name : string option
-  (** The name of the reader. The diagnostic render can use the name of the reader in place of a file path. *)
+    (** The name of the reader. The diagnostic render can use the name of the reader in place of a file path. *)
   ; length : int (** The length (in bytes) of the source. *)
   ; unsafe_get : int -> char
-  (** [unsafe_get i] reads the [i]th byte without performing bounds checks. *)
+    (** [unsafe_get i] reads the [i]th byte without performing bounds checks. *)
   }
 [@@deriving equal, compare, hash, sexp]
 
@@ -22,7 +22,7 @@ val reader_name : reader -> string
 (** An in-memory string source. *)
 type string_source =
   { name : string option
-  (** The name of a string source. The diagnostic render can use the name of a string source in place of a file path. *)
+    (** The name of a string source. The diagnostic render can use the name of a string source in place of a file path. *)
   ; content : string (** The content of a string source *)
   }
 [@@deriving equal, compare, hash, sexp]

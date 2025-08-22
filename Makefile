@@ -5,7 +5,7 @@ all: build
 
 .PHONY: install-ocamlformat
 install-ocamlformat:
-	opam install -y ocamlformat=0.26.1
+	opam install -y ocamlformat=0.27.0
 
 .PHONY: install-deps
 install-deps: install-switch install-ocamlformat

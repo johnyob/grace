@@ -154,7 +154,8 @@ let%expect_test _ =
   let a = range 1 5 in
   let b = range 3 10 in
   print a b;
-  [%expect {|
+  [%expect
+    {|
     a: [1, 5)
     b: [3, 10)
     Range.are_disjoint a b: false |}];
@@ -162,7 +163,8 @@ let%expect_test _ =
   let a = range 1 10 in
   let b = range 3 7 in
   print a b;
-  [%expect {|
+  [%expect
+    {|
     a: [1, 10)
     b: [3, 7)
     Range.are_disjoint a b: false |}];
@@ -170,20 +172,23 @@ let%expect_test _ =
   let a = range 1 5 in
   let b = range 10 20 in
   print a b;
-  [%expect {|
+  [%expect
+    {|
     a: [1, 5)
     b: [10, 20)
     Range.are_disjoint a b: true |}];
   (* Off by one *)
   let b = range 5 10 in
   print a b;
-  [%expect {|
+  [%expect
+    {|
     a: [1, 5)
     b: [5, 10)
     Range.are_disjoint a b: true |}];
   let b = range 0 1 in
   print a b;
-  [%expect {|
+  [%expect
+    {|
     a: [1, 5)
     b: [0, 1)
     Range.are_disjoint a b: true |}]

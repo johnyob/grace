@@ -228,8 +228,9 @@ module Of_diagnostic = struct
 
   let add_eol_segment ~sd ~(line : Source_reader.Line.t) cursor rev_segments =
     let stop = Source_reader.Line.stop line in
-    if (* If [cursor < stop -1], then we require a non-empty end-of-line segment *)
-       Byte_index.(add cursor 1 < stop)
+    if
+      (* If [cursor < stop -1], then we require a non-empty end-of-line segment *)
+      Byte_index.(add cursor 1 < stop)
     then
       Line.
         { content = Source_reader.slicei sd cursor stop
@@ -279,8 +280,7 @@ module Of_diagnostic = struct
         ~f:
           (fun
             (rev_segments, priority_count, cursor, cursor_labels)
-            (idx, priority, start_or_stop)
-          ->
+            (idx, priority, start_or_stop) ->
           (* If the next point is at the current cursor and the cursor is before the
              end of the line ... *)
           if Byte_index.(cursor = idx) && Byte_index.(idx < eol)

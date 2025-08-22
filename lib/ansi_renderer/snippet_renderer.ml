@@ -348,7 +348,7 @@ module Inline_labels = struct
   type t =
     { trailing_segment : trailing_segment option (** An optional trailing label *)
     ; hanging_segments : hanging_segment list
-    (** A lexically sorted list of hanging segments *)
+      (** A lexically sorted list of hanging segments *)
     }
 
   let is_empty { hanging_segments; trailing_segment } =
@@ -577,12 +577,12 @@ let pp_block ~config ~severity ~ctxt ppf ({ start; lines } : Snippet.block) =
 ;;
 
 let pp_source
-  ~config
-  ~severity
-  ~line_num_width
-  ~multi_width
-  ppf
-  ({ source; blocks; locus } : Snippet.source)
+      ~config
+      ~severity
+      ~line_num_width
+      ~multi_width
+      ppf
+      ({ source; blocks; locus } : Snippet.source)
   =
   let ctxt = { multi_context = Multi_context.create ~len:multi_width; line_num_width } in
   pp_source_start ~config ~ctxt ~source ppf locus;
@@ -623,12 +623,12 @@ let pp_note ~config ~line_num_width ppf note =
 ;;
 
 let pp_rich_snippet
-  ~config
-  ~code_to_string
-  ~line_num_width
-  ~multi_width
-  ppf
-  (severity, message, code, sources)
+      ~config
+      ~code_to_string
+      ~line_num_width
+      ~multi_width
+      ppf
+      (severity, message, code, sources)
   =
   pp_header ~config ~code_to_string ~severity ~code ppf message;
   if not (List.is_empty sources) then Fmt.newline ppf ();
@@ -697,10 +697,10 @@ let multi_width sources =
 ;;
 
 let pp_snippet
-  ~config
-  ~code_to_string
-  ppf
-  ({ severity; message; code; sources; notes } : 'code Snippet.t)
+      ~config
+      ~code_to_string
+      ppf
+      ({ severity; message; code; sources; notes } : 'code Snippet.t)
   =
   Fmt.set_style_renderer ppf (Config.style_renderer config);
   Format.pp_set_geometry ppf ~max_indent:2 ~margin:Format.pp_max_margin;
