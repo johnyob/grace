@@ -98,7 +98,7 @@ module Label : sig
     { range : Range.t (** The range we are going to include in the rendered diagnostic. *)
     ; priority : Priority.t (** The priority (or style) of the label. *)
     ; message : Message.t
-    (** A message providing additional information for the underlined code. *)
+      (** A message providing additional information for the underlined code. *)
     }
   [@@deriving equal, hash, sexp]
 
@@ -148,15 +148,15 @@ end
 type 'code t =
   { severity : Severity.t (** The overall severity of the diagnostic. *)
   ; message : Message.t
-  (** The main message associated with the diagnostic. These should not include control characters (such as the newline character [\n]).
+    (** The main message associated with the diagnostic. These should not include control characters (such as the newline character [\n]).
       To support compact rendering, the message should be specific enough to make sense on its own, without the additional context provided
       by labels and notes. *)
   ; code : 'code option (** The (optional) error code assicoated with the diagnostic *)
   ; labels : Label.t list
-  (** Labels that describe the cause of the diagnostic. The order of the labels has no meaning,
+    (** Labels that describe the cause of the diagnostic. The order of the labels has no meaning,
       Grace's rendering engine will determine the order they appear. *)
   ; notes : Message.t list
-  (** Notes that are associated with the primary cause of the diagnostic. *)
+    (** Notes that are associated with the primary cause of the diagnostic. *)
   }
 [@@deriving sexp]
 

@@ -58,7 +58,7 @@ end
 (** A block is a list of consecutive lines. *)
 type block =
   { start : Line_index.t
-  (** The starting {{!type:Line_index.t} line index} of the block. *)
+    (** The starting {{!type:Line_index.t} line index} of the block. *)
   ; lines : Line.t list (** The {{!type:Line.t} line}s in the block. *)
   }
 
@@ -67,7 +67,7 @@ and source =
   { source : Source.t (** The source. *)
   ; locus : locus (** The 'locus' position in the file. *)
   ; blocks : block list
-  (** The list of {!type:block}s. The blocks are non-overlapping and sorted. *)
+    (** The list of {!type:block}s. The blocks are non-overlapping and sorted. *)
   }
 
 and locus = Line_number.t * Column_number.t

@@ -33,10 +33,7 @@
           projectRootFile = "flake.nix";
 
           programs.alejandra.enable = true;
-          programs.ocamlformat = {
-            enable = true;
-            package = pkgs.ocamlformat_0_26_1;
-          };
+          programs.ocamlformat.enable = true;
 
           settings.global.excludes = ["result" "assets" ".direnv" "_build" "_opam" "node_modules"];
         };
@@ -56,7 +53,7 @@
           buildInputs = with pkgs; [
             # Formatters
             alejandra
-            ocamlformat_0_26_1
+            ocamlformat
 
             # OCaml devenv
             ocamlPackages.utop
