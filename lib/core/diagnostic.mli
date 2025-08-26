@@ -1,4 +1,4 @@
-open Core
+open Grace_std
 
 (** The type of format strings associated with messages.
 
@@ -26,9 +26,8 @@ module Severity : sig
     | Warning (** A warning. *)
     | Error (** An error. *)
     | Bug (** An unexpected bug. *)
-  [@@deriving equal, compare, hash, sexp]
+  [@@deriving equal, compare, sexp]
 
-  include Comparable.S with type t := t
   include Pretty_printer.S with type t := t
 
   val to_string : t -> string
@@ -47,9 +46,8 @@ module Priority : sig
     (** Priority to describe labels that explain the secondary causes of a diagnostic. *)
     | Primary
     (** Priority to describe labels that explain the primary cause of a diagnostic. *)
-  [@@deriving equal, compare, hash, sexp]
+  [@@deriving equal, compare, sexp]
 
-  include Comparable.S with type t := t
   include Pretty_printer.S with type t := t
 
   val is_primary : t -> bool
@@ -69,9 +67,8 @@ module Message : sig
 
       Equality and comparison of messages is performed on the hash of the messages rendered
       contents. *)
-  type t = Format.formatter -> unit [@@deriving equal, hash, sexp]
+  type t = Format.formatter -> unit [@@deriving sexp]
 
-  include Comparable.S with type t := t
   include Pretty_printer.S with type t := t
 
   (** [create str] converts the string [str] into a message. *)
@@ -100,7 +97,7 @@ module Label : sig
     ; message : Message.t
       (** A message providing additional information for the underlined code. *)
     }
-  [@@deriving equal, hash, sexp]
+  [@@deriving equal, sexp]
 
   (** [create ~range ~priority message] constructs a label.
 

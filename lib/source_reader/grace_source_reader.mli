@@ -7,9 +7,7 @@ open! Grace
 module Source_descr : sig
   (** A source descriptor is a handle for an open {{!type:Grace.Source.t} source} *)
 
-  type t [@@deriving equal, compare, hash, sexp]
-
-  include Hashable.S with type t := t
+  type t [@@deriving equal, compare, sexp]
 
   (** [source sd] returns the underlying source of the descriptor. *)
   val source : t -> Source.t
