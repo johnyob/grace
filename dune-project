@@ -30,4 +30,8 @@
   iter
   core_unix
   uutf
-  ppx_optcomp))
+  ppx_optcomp
+  ppx_compare 
+  ppx_sexp_conv 
+  ppx_hash))
+

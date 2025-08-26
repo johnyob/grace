@@ -31,7 +31,7 @@ let name = function
 
 let length = function
   | `File filename ->
-    (try In_channel.(with_file filename ~f:length) |> Int64.to_int_exn with
+    (try In_channel.(with_open_bin filename length) |> Int64.to_int with
      | _ -> invalid_argf "file size is larger than an OCaml 63-bit integer")
   | `String { content; _ } -> String.length content
   | `Reader { length; _ } -> length
