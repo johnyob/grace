@@ -1,4 +1,4 @@
-open Core
+open Grace_std
 
 (** Index types are integer-like types that specify byte-indexed positions in a source file.
     All indices are 0-indexed and positive.
@@ -12,10 +12,9 @@ open Core
 
 module type Index = sig
   (** The type of indexes. An integer with the invariant that an index [t] satisfies [t >= 0]. *)
-  type t = private int [@@deriving equal, compare, hash, sexp]
+  type t = private int [@@deriving sexp]
 
   include Comparable.S with type t := t
-  include Invariant.S with type t := t
   include Pretty_printer.S with type t := t
 
   val to_string : t -> string

@@ -10,7 +10,12 @@ module Severity = struct
       | Warning
       | Error
       | Bug
-    [@@deriving equal, compare, hash, sexp]
+    [@@deriving sexp]
+
+    let compare =
+      (* [Stdlib.compare] will compare the underlying integer representations. *)
+      (Stdlib.compare : t -> t -> int)
+    ;;
   end
 
   include T
@@ -24,7 +29,7 @@ module Severity = struct
     | Bug -> "bug"
   ;;
 
-  let pp = Format.pp_of_to_string to_string
+  let pp = Fmt.of_to_string to_string
 end
 
 module Priority = struct
@@ -32,7 +37,12 @@ module Priority = struct
     type t =
       | Secondary
       | Primary
-    [@@deriving equal, compare, hash, sexp]
+    [@@deriving sexp]
+
+    let compare =
+      (* [Stdlib.compare] will compare the underlying integer representations. *)
+      (Stdlib.compare : t -> t -> int)
+    ;;
   end
 
   include T
@@ -53,37 +63,27 @@ module Priority = struct
     | Secondary -> "secondary"
   ;;
 
-  let pp = Format.pp_of_to_string to_string
+  let pp = Fmt.of_to_string to_string
 end
 
 module Message = struct
-  module T = struct
-    type t = Formatter.t -> unit
+  type t = Format.formatter -> unit
 
-    let of_string str ppf =
-      Format.(pp_print_list ~pp_sep:pp_force_newline pp_print_string) ppf
-      @@ String.split_lines str
-    ;;
+  let of_string str ppf =
+    Fmt.(list ~sep:Format.pp_force_newline string) ppf @@ String.split_lines str
+  ;;
 
-    let to_string t =
-      let buf = Buffer.create 512 in
-      let ppf = Format.formatter_of_buffer buf in
-      Format.pp_set_geometry ppf ~max_indent:2 ~margin:Format.pp_max_margin;
-      t ppf;
-      Format.pp_print_flush ppf ();
-      Buffer.contents buf
-    ;;
+  let to_string t =
+    let buf = Buffer.create 512 in
+    let ppf = Format.formatter_of_buffer buf in
+    Format.pp_set_geometry ppf ~max_indent:2 ~margin:Format.pp_infinity;
+    t ppf;
+    Format.pp_print_flush ppf ();
+    Buffer.contents buf
+  ;;
 
-    let sexp_of_t = sexp_of_t_of_to_string to_string
-    let t_of_sexp = t_of_sexp_of_of_string of_string
-    let hash_fold_t state t = Hash.fold_string state (to_string t)
-    let hash = Hash.of_fold hash_fold_t
-    let compare = Comparable.lift Int.compare ~f:hash
-  end
-
-  include T
-  include Comparable.Make (T)
-
+  let sexp_of_t = sexp_of_t_of_to_string to_string
+  let t_of_sexp = t_of_sexp_of_of_string of_string
   let create = of_string
   let createf = Format.dprintf
   let kcreatef = Format.kdprintf
@@ -96,7 +96,7 @@ module Label = struct
     ; priority : Priority.t
     ; message : Message.t
     }
-  [@@deriving equal, compare, hash, sexp]
+  [@@deriving sexp]
 
   let create ~range ~priority message = { range; priority; message }
   let createf ~range ~priority fmt = fmt |> Message.kcreatef @@ create ~range ~priority

@@ -26,18 +26,19 @@ module type Number = Index
 
 module Int_number = struct
   module T = struct
-    type t = int [@@deriving compare, hash, sexp]
+    type t = int [@@deriving sexp]
+
+    let compare = Int.compare
   end
 
   include T
   include Comparable.Make (T)
 
-  let invariant t = Invariant.invariant [%here] t sexp_of_t (fun () -> assert (t >= 1))
   let pp = Format.pp_print_int
   let to_string = Int.to_string
 
   let of_int t =
-    invariant t;
+    assert (t >= 1);
     t
   ;;
 
@@ -45,13 +46,13 @@ module Int_number = struct
 
   let add t off =
     let t = t + off in
-    invariant t;
+    assert (t >= 1);
     t
   ;;
 
   let sub t off =
     let t = t - off in
-    invariant t;
+    assert (t >= 1);
     t
   ;;
 
@@ -142,9 +143,10 @@ let locus_of_labels ~sd (labels : Label.t list) =
   (* The locus is defined as the earliest highest priority position in the the set of labels *)
   let _, locus_idx =
     labels
-    |> List.map ~f:(fun label -> label.priority, Range.start label.range)
-    |> List.max_elt ~compare:[%compare: Diagnostic.Priority.t * Byte_index.t]
-    |> Option.value_exn ~here:[%here]
+    |> List.map ~f:(fun (label : Label.t) -> label.priority, Range.start label.range)
+    |> List.max_elt
+         ~compare:(Comparable.pair Diagnostic.Priority.compare Byte_index.compare)
+    |> Option.get ~here:__LOC__
   in
   let line = Source_reader.Line.of_byte_index sd locus_idx in
   Line_number.of_line_index line.idx, Column_number.of_byte_index locus_idx ~sd ~line
@@ -160,7 +162,7 @@ let group_labels_by_source labels =
     (* Invariants:
        + [List.length labels > 0]
        + Sources for each label are equal *)
-    let source = Range.source (List.hd_exn labels).range in
+    let source = Range.source (List.hd_exn labels).Label.range in
     source, labels)
 ;;
 
@@ -175,7 +177,7 @@ module Of_diagnostic = struct
     | { Label.range; _ } :: _ as labels ->
       List.fold_left
         labels
-        ~f:(fun range label -> Range.merge range label.range)
+        ~f:(fun range label -> Range.merge range label.Label.range)
         ~init:range
   ;;
 
@@ -251,7 +253,9 @@ module Of_diagnostic = struct
       let compare_point =
         (* We lexicographically compare the idx and then we order starting points before stopping points *)
         Comparable.lift
-          [%compare: Byte_index.t * [ `Start | `Stop ]]
+          (Comparable.pair
+             Byte_index.compare
+             ((* Compare the tags *) Stdlib.compare : [ `Start | `Stop ] Comparable.t))
           ~f:(fun (idx, _, start_or_stop) ->
             let start_or_stop =
               match start_or_stop with
@@ -305,9 +309,9 @@ module Of_diagnostic = struct
                 { content
                 ; length = Utf8.length content
                 ; stag =
-                    Option.(
-                      Priority_count.priority priority_count
-                      >>| fun priority -> { priority; inline_labels = cursor_labels })
+                    Priority_count.priority priority_count
+                    |> Option.map (fun priority ->
+                      { priority; inline_labels = cursor_labels })
                 }
             in
             let priority_count, cursor_labels =

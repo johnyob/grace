@@ -1,16 +1,28 @@
-open Core
+open Grace_std
 open Grace
-open Core_unix
+module Unix = UnixLabels
 
-let invalid_argf fmt = Format.kasprintf invalid_arg fmt
 let sys_errorf fmt = Format.kasprintf (fun s -> raise (Sys_error s)) fmt
+
+type bigstring = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 (** A file is abstracted as a (memory-mapped) bigstring *)
 type file =
-  { descr : File_descr.t
-  ; content : (Bigstring.t[@sexp.opaque]) [@equal.ignore] [@compare.ignore] [@hash.ignore]
+  { descr : Unix.file_descr
+  ; content : (bigstring[@sexp.opaque]) [@ignore]
   }
-[@@deriving equal, compare, hash, sexp]
+
+let compare_file file1 file2 = compare file1.descr file2.descr
+
+let sexp_of_file file =
+  let open Sexplib.Std in
+  let descr_repr = Obj.repr file.descr in
+  assert (Obj.is_int descr_repr);
+  (* SAFETY: [Unix.file_descr] is represented as an [int]. *)
+  [%sexp_of: int] (Obj.obj descr_repr)
+;;
+
+let file_of_sexp _ = invalid_argf "cannot convert s-expression into file"
 
 module File_table : sig
   (** The abstract type of the file table *)
@@ -26,25 +38,35 @@ module File_table : sig
 end = struct
   type t = (string, file) Hashtbl.t
 
-  let create () : t = Hashtbl.create (module String)
+  let create () : t = Hashtbl.create 4
 
   let open_file t fname =
     Hashtbl.find_or_add t fname ~default:(fun () ->
-      let fd = openfile ~mode:[ O_RDONLY ] fname in
+      let fd =
+        try Unix.openfile fname ~mode:[ O_RDONLY ] ~perm:0o777 with
+        | Unix.Unix_error _ -> sys_errorf "could not open file %s" fname
+      in
       let content =
         try
           let size = -1 in
-          Bigstring_unix.map_file ~shared:false fd size
+          fd
+          |> Unix.map_file
+               ~pos:0L
+               ~shared:false
+               ~kind:Bigarray.char
+               ~layout:Bigarray.c_layout
+               ~dims:[| size |]
+          |> Bigarray.array1_of_genarray
         with
         | _ ->
-          close fd;
+          Unix.close fd;
           sys_errorf "could not read the file %s" fname
       in
       { descr = fd; content })
   ;;
 
   let close_all_files t =
-    Hashtbl.iter t ~f:(fun file -> close file.descr);
+    Hashtbl.iter (fun _ file -> Unix.close file.descr) t;
     Hashtbl.clear t
   ;;
 end
@@ -54,32 +76,49 @@ module Source_descr = struct
     type content =
       | File of file
       | String of string
-      | Reader of Source.reader
-    [@@deriving equal, compare, hash, sexp]
+      | Reader of Source.Reader.t
+    [@@deriving sexp]
 
     type t =
       { content : content
       ; source : Source.t
       }
-    [@@deriving equal, compare, hash, sexp]
+    [@@deriving sexp]
+
+    let compare_content c1 c2 =
+      match c1, c2 with
+      | File f1, File f2 -> compare_file f1 f2
+      | String s1, String s2 -> String.compare s1 s2
+      | Reader rd1, Reader rd2 -> Source.Reader.compare rd1 rd2
+      | _, _ -> Stdlib.compare c1 c2
+    ;;
+
+    let compare t1 t2 =
+      if phys_equal t1 t2
+      then 0
+      else (
+        match compare_content t1.content t2.content with
+        | 0 -> Source.compare t1.source t2.source
+        | n -> n)
+    ;;
   end
 
   include T
-  include Hashable.Make (T)
+  include Comparable.Make (T)
 
   let[@inline] source t = t.source
 end
 
 let length (sd : Source_descr.t) =
   match sd.content with
-  | File file -> Bigstring.length file.content
+  | File file -> Bigarray.Array1.size_in_bytes file.content
   | String string -> String.length string
   | Reader reader -> reader.length
 ;;
 
 let unsafe_get (sd : Source_descr.t) i =
   match sd.content with
-  | File file -> Bigstring.unsafe_get file.content i
+  | File file -> Bigarray.Array1.unsafe_get file.content i
   | String str -> String.unsafe_get str i
   | Reader reader -> reader.unsafe_get i
 ;;
@@ -140,14 +179,9 @@ module Line_starts = struct
   let find t (idx : Byte_index.t) =
     (* Safety: t.line_starts is known to be non-empty, hence `Last_less_than_or_equal_to
        will always return an index *)
-    Binary_search.binary_search
-      t
-      ~length
-      ~get:unsafe_get
-      ~compare:Byte_index.compare
-      `Last_less_than_or_equal_to
-      idx
-    |> Option.value_exn ~here:[%here]
+    Binary_search.find_last_satisfying t ~length ~get:unsafe_get ~pred:(fun idx' ->
+      Byte_index.compare idx' idx <= 0)
+    |> Option.get
   ;;
 end
 
@@ -159,7 +193,7 @@ type error =
 exception Error of error
 
 type t =
-  { line_starts_table : Line_starts.t Source_descr.Table.t
+  { line_starts_table : (Source_descr.t, Line_starts.t) Hashtbl.t
   ; file_table : File_table.t
   ; line_starts_fn : Line_starts.fn
   }
@@ -178,7 +212,7 @@ let init ?(line_starts_fn = Line_starts.default_fn) () =
   := Some
        { line_starts_fn
        ; file_table = File_table.create ()
-       ; line_starts_table = Source_descr.Table.create ()
+       ; line_starts_table = Hashtbl.create 300
        }
 ;;
 

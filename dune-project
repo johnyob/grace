@@ -22,12 +22,12 @@
   (ocaml
    (>= 4.14.0))
   dune
-  core
-  ppx_jane
   (fmt
    (>= 0.8.7))
-  dedent
   iter
-  core_unix
   uutf
-  ppx_optcomp))
+  (dedent :with-test)
+  (core :with-test)
+  (ppx_jane :with-test)
+  ))
+

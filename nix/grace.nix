@@ -9,5 +9,6 @@ with ocamlPackages;
 
     src = lib.cleanSource ../.;
 
-    propagatedBuildInputs = [core ppx_jane fmt dedent iter core_unix uutf ppx_optcomp];
+    propagatedBuildInputs = [fmt dedent iter uutf];
+    checkInputs = [core ppx_jane dedent];
   }

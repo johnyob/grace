@@ -100,42 +100,39 @@ type multi_kind =
 
 module Multi_context = struct
   type t =
-    { gutters : (Priority.t * multi_kind) Option_array.t
-    ; bindings : int Multi_id.Table.t
+    { gutters : (Priority.t * multi_kind) option array
+    ; bindings : (Multi_id.t, int) Hashtbl.t
     }
 
-  let create ~len =
-    { gutters = Option_array.create ~len; bindings = Multi_id.Table.create () }
-  ;;
-
-  let length t = Option_array.length t.gutters
+  let create ~len = { gutters = Array.make len None; bindings = Hashtbl.create 8 }
+  let length t = Array.length t.gutters
 
   let def t ~multi_id ~top_kind ~priority prologue =
     assert (not (Hashtbl.mem t.bindings multi_id));
-    let gutter, _ =
+    let gutter =
       (* Find the next free available gutter (one such gutter *must* exist!) *)
       t.gutters
-      |> Option_array.findi ~f:(fun _ gutter -> Option.is_none gutter)
-      |> Option.value_exn ~here:[%here]
+      |> Array.find_index ~f:(fun gutter -> Option.is_none gutter)
+      |> Option.get ~here:__LOC__
     in
-    Hashtbl.set t.bindings ~key:multi_id ~data:gutter;
+    Hashtbl.add t.bindings multi_id gutter;
     (* Set gutter to `Top *)
-    Option_array.set_some t.gutters gutter (priority, `Top top_kind);
+    t.gutters.(gutter) <- Some (priority, `Top top_kind);
     (* Execute 'prologue' for multi-line label *)
     prologue ();
     (* Set gutter to `Vertical *)
-    Option_array.set_some t.gutters gutter (priority, `Vertical)
+    t.gutters.(gutter) <- Some (priority, `Vertical)
   ;;
 
   let free t ~multi_id epilogue =
-    let gutter = Hashtbl.find_exn t.bindings multi_id in
-    let priority, _ = Option_array.get_some_exn t.gutters gutter in
+    let gutter = Hashtbl.find t.bindings multi_id in
+    let priority, _ = Option.get ~here:__LOC__ t.gutters.(gutter) in
     (* Set gutter to `Bottom *)
-    Option_array.set_some t.gutters gutter (priority, `Bottom);
+    t.gutters.(gutter) <- Some (priority, `Bottom);
     (* Execute 'epilogue' for multi-line label *)
     epilogue ();
     (* Remove bindings for multi-line label *)
-    Option_array.set_none t.gutters gutter;
+    t.gutters.(gutter) <- None;
     Hashtbl.remove t.bindings multi_id
   ;;
 end
@@ -166,7 +163,7 @@ let pp_multi_lines ~(config : Config.t) ~severity ppf (mctxt : Multi_context.t) 
     (fun sep' -> sep := sep'), fun () -> !sep ppf ()
   in
   for i = 0 to Multi_context.length mctxt - 1 do
-    match Option_array.get mctxt.gutters i with
+    match mctxt.gutters.(i) with
     | None ->
       (* Print the [sep] for the missing gutter and a trailing separator. *)
       pr_sep ();
@@ -381,9 +378,11 @@ module Inline_labels = struct
       cursor := Column_number.(add offset length)
     in
     (* Render the carets for hanging and trailing segments *)
-    List.iter hanging_segments ~f:(fun { offset; length; priority; _ } ->
+    hanging_segments
+    |> List.iter ~f:(fun ({ offset; length; priority; _ } : hanging_segment) ->
       pr_segment (offset, length, priority));
-    Option.iter trailing_segment ~f:(fun { offset; length; priority; _ } ->
+    trailing_segment
+    |> Option.iter (fun { offset; length; priority; _ } ->
       pr_segment (offset, length, priority))
   ;;
 
@@ -403,23 +402,16 @@ module Inline_labels = struct
         assert (Column_number.(cursor <= offset));
         (* In the case of an empty hanging segment, simply print the spaces and move the cursor *)
         let pointers =
-          String.append
-            pointers
-            (String.make Column_number.(diff (add offset length) cursor) ' ')
+          pointers ^ String.make Column_number.(diff (add offset length) cursor) ' '
         in
         loop Column_number.(add offset length) pointers segments
       | { offset; length = _; priority; messages = _ :: _ as messages } :: segments ->
         assert (Column_number.(cursor <= offset));
         (* Prefix the pointers with spaces *)
-        let pointers =
-          String.append pointers (String.make Column_number.(diff offset cursor) ' ')
-        in
+        let pointers = pointers ^ String.make Column_number.(diff offset cursor) ' ' in
         (* Print the pointers & messages above this message adding a pointer for this set of messages
            Invariant: offset + length >= offset + 1 <=> length > 0 *)
-        loop
-          Column_number.(add offset 1)
-          String.(pointers ^ str_pointer_left priority)
-          segments;
+        loop Column_number.(add offset 1) (pointers ^ str_pointer_left priority) segments;
         Fmt.newline ppf ();
         (* Print the messages *)
         pbox ~prefix:pointers (pp_messages ~priority) ppf messages
@@ -455,7 +447,7 @@ module Inline_labels = struct
            - the span of the label in the trailing segment doesn't intersect any
              other label on the line
         *)
-        (match Option.(prev_segment >>= as_trailing_segment) with
+        (match Option.(bind prev_segment as_trailing_segment) with
          | Some trailing_segment ->
            let hanging_segments = List.rev rev_segments in
            { hanging_segments; trailing_segment = Some trailing_segment }
@@ -470,9 +462,8 @@ module Inline_labels = struct
           (* Ensure that higher priority messages are printed first *)
           inline_labels
           |> List.sort
-               ~compare:
-                 (Comparable.lift (Comparable.reverse Priority.compare) ~f:Tuple2.get1)
-          |> List.map ~f:Tuple2.get2
+               ~compare:(Comparable.lift (Comparable.reverse Priority.compare) ~f:fst)
+          |> List.map ~f:snd
         in
         loop
           segments
@@ -508,7 +499,8 @@ let pp_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
       ~init:([], None)
       ~f:(fun multi_line_label (mlls, utmll) ->
         match multi_line_label with
-        | Top { start; _ } when (start :> int) - 1 <= line.margin_length ->
+        | Snippet.Multi_line_label.Top { start; _ }
+          when (start :> int) - 1 <= line.margin_length ->
           (match utmll with
            | None -> mlls, Some multi_line_label
            | Some utmll -> multi_line_label :: utmll :: mlls, None)
@@ -705,7 +697,7 @@ let pp_snippet
       ({ severity; message; code; sources; notes } : 'code Snippet.t)
   =
   Fmt.set_style_renderer ppf (Config.style_renderer config);
-  Format.pp_set_geometry ppf ~max_indent:2 ~margin:Format.pp_max_margin;
+  Format.pp_set_geometry ppf ~max_indent:2 ~margin:(Format.pp_infinity - 1);
   let line_num_width = line_num_width sources in
   let multi_width = multi_width sources in
   Fmt.pf ppf "@[<v>";

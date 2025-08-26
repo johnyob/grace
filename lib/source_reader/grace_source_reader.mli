@@ -1,5 +1,5 @@
-open! Core
-open! Grace
+open Grace_std
+open Grace
 
 (** A source reader maintains a global table mapping source descriptors to their contents
     and their {i line starts}. *)
@@ -7,9 +7,9 @@ open! Grace
 module Source_descr : sig
   (** A source descriptor is a handle for an open {{!type:Grace.Source.t} source} *)
 
-  type t [@@deriving equal, compare, hash, sexp]
+  type t [@@deriving sexp]
 
-  include Hashable.S with type t := t
+  include Comparable.S with type t := t
 
   (** [source sd] returns the underlying source of the descriptor. *)
   val source : t -> Source.t

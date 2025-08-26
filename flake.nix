@@ -72,7 +72,8 @@
           pkgs.mkShell {
             name = "grace-dev-shell";
 
-            inputsFrom = [grace];
+            # Inherit inputs for tests as well
+            inputsFrom = [(grace.overrideAttrs (_: {doCheck = true;}))];
             inherit (pre-commit-check) shellHook;
 
             buildInputs = with pkgs;

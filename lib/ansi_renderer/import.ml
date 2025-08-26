@@ -1,21 +1,7 @@
-include Core
+include Grace_std
 include Grace
 module Source_reader = Grace_source_reader
 module Iter = IterLabels
-
-module Format = struct
-  include Format
-
-  [%%if ocaml_version < (5, 2, 0)]
-
-  let pp_max_margin = Int.max_value
-
-  [%%else]
-
-  let pp_max_margin = pp_infinity - 1
-
-  [%%endif]
-end
 
 module Fmt = struct
   include Fmt

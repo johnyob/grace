@@ -1,10 +1,9 @@
 open! Import
 
 module type Index = sig
-  type t = private int [@@deriving hash, sexp]
+  type t = private int [@@deriving sexp]
 
   include Comparable.S with type t := t
-  include Invariant.S with type t := t
   include Pretty_printer.S with type t := t
 
   val to_string : t -> string
@@ -15,24 +14,21 @@ module type Index = sig
   val diff : t -> t -> int
 end
 
-module Int_index = struct
+module Make () = struct
   module T = struct
-    type t = int [@@deriving compare, hash, sexp]
+    type t = int [@@deriving sexp]
+
+    let compare = Int.compare
   end
 
   include T
   include Comparable.Make (T)
 
-  let invariant t =
-    (* FIXME: Register custom exceptions for pretty printing *)
-    Invariant.invariant [%here] t sexp_of_t (fun () -> assert (t >= 0))
-  ;;
-
-  let pp = Format.pp_print_int
+  let pp = Fmt.int
   let to_string = Int.to_string
 
   let of_int t =
-    invariant t;
+    assert (t >= 0);
     t
   ;;
 
@@ -40,24 +36,24 @@ module Int_index = struct
 
   let add t off =
     let t = t + off in
-    invariant t;
+    assert (t >= 0);
     t
   ;;
 
   let sub t off =
     let t = t - off in
-    invariant t;
+    assert (t >= 0);
     t
   ;;
 
   let diff t1 t2 = t1 - t2
 end
 
-module Line_index = Int_index
-module Column_index = Int_index
+module Line_index = Make ()
+module Column_index = Make ()
 
 module Byte_index = struct
-  include Int_index
+  include Make ()
 
   let of_lex Lexing.{ pos_cnum; _ } = of_int pos_cnum
 end

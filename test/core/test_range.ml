@@ -24,8 +24,8 @@ let%expect_test _ =
   [%expect
     {|
     Test raised error as expected.
-    Error: ("invariant failed" lib/core/index.ml:28:24
-     (exn "Assert_failure lib/core/index.ml:28:55") -1) |}];
+    Error: "Assert_failure lib/core/index.ml:31:4"
+    |}];
   let print ~op ~op_name idx off =
     Fmt.pr
       "@[<v>idx: %a@;off: %d@;idx %s off: %a@]@."
@@ -69,8 +69,8 @@ let%expect_test _ =
   [%expect
     {|
     Test raised error as expected.
-    Error: ("invariant failed" lib/core/index.ml:28:24
-     (exn "Assert_failure lib/core/index.ml:28:55") -8) |}];
+    Error: "Assert_failure lib/core/index.ml:39:4"
+    |}];
   (* Subtract +ve offset invaliding [idx > 0] invariant *)
   fail (fun () ->
     let idx = Byte_index.of_int 10 in
@@ -79,8 +79,8 @@ let%expect_test _ =
   [%expect
     {|
     Test raised error as expected.
-    Error: ("invariant failed" lib/core/index.ml:28:24
-     (exn "Assert_failure lib/core/index.ml:28:55") -10) |}]
+    Error: "Assert_failure lib/core/index.ml:45:4"
+    |}]
 ;;
 
 let%test_unit _ =
