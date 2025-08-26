@@ -93,15 +93,9 @@
               ++ pre-commit-check.enabledPackages;
           };
 
-        apps.ci-cz-check = {
+        apps.ci-cz = {
           type = "app";
-          program = let
-            czCheck = pkgs.writeShellScript "cz-check.sh" ''
-              set -e
-              ${pkgs.commitizen}/bin/cz check --rev-range origin/main..
-            '';
-          in
-            builtins.toString czCheck;
+          program = "${pkgs.commitizen}/bin/cz";
         };
       });
 }
