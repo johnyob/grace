@@ -21,7 +21,7 @@ jobs:
           - ocaml-base-compiler.5.1.0
           - ocaml-base-compiler.5.2.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
         uses: ocaml/setup-ocaml@v3
