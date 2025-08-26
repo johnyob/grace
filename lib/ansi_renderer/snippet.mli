@@ -1,5 +1,4 @@
-open! Core
-open! Grace
+open! Import
 open! Diagnostic
 
 (** [Number]s are indexes (with different initial constraints) *)

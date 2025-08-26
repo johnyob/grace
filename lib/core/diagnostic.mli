@@ -1,4 +1,4 @@
-open Core
+open Grace_std
 
 (** The type of format strings associated with messages.
 
@@ -26,7 +26,7 @@ module Severity : sig
     | Warning (** A warning. *)
     | Error (** An error. *)
     | Bug (** An unexpected bug. *)
-  [@@deriving equal, compare, hash, sexp]
+  [@@deriving sexp]
 
   include Comparable.S with type t := t
   include Pretty_printer.S with type t := t
@@ -35,7 +35,8 @@ module Severity : sig
 end
 
 module Priority : sig
-  (** The type of priority. These are used to style the primary and secondary causes of a diagnostic.
+  (** The type of priority. These are used to style the primary and secondary
+      causes of a diagnostic.
 
       These are ordered in the following way:
       {[
@@ -44,10 +45,12 @@ module Priority : sig
 
   type t =
     | Secondary
-    (** Priority to describe labels that explain the secondary causes of a diagnostic. *)
+    (** Priority to describe labels that explain the secondary causes of a
+        diagnostic. *)
     | Primary
-    (** Priority to describe labels that explain the primary cause of a diagnostic. *)
-  [@@deriving equal, compare, hash, sexp]
+    (** Priority to describe labels that explain the primary cause of a
+        diagnostic. *)
+  [@@deriving sexp]
 
   include Comparable.S with type t := t
   include Pretty_printer.S with type t := t
@@ -60,18 +63,19 @@ end
 module Message : sig
   (** The type of messages.
 
-      Messages are unrendered formatted strings. The rendering is delayed till Grace's renderering engine
-      since layout decisions are it's responsibility.
+      Messages are unrendered formatted strings. The rendering is delayed till
+      Grace's renderering engine since layout decisions are it's
+      responsibility.
 
       A valid message must satisfy the following two conditions:
       + Messages must be encoded using ASCII.
-      + Messages must not contain control characters such as the newline character [\n].
+      + Messages must not contain control characters such as the newline
+        character [\n].
 
-      Equality and comparison of messages is performed on the hash of the messages rendered
-      contents. *)
-  type t = Format.formatter -> unit [@@deriving equal, hash, sexp]
+      Eqality and comparison of messages is performed on the hash of the
+      messages rendered contents. *)
+  type t = Format.formatter -> unit [@@deriving sexp]
 
-  include Comparable.S with type t := t
   include Pretty_printer.S with type t := t
 
   (** [create str] converts the string [str] into a message. *)
@@ -83,7 +87,8 @@ module Message : sig
   (** [kcreatef kont fmt ...] is equivalent to [kont (createf fmt ...)]. *)
   val kcreatef : (t -> 'b) -> ('a, 'b) format -> 'a
 
-  (** converts a {{!type:t} message} into a string by formatting it with the maximum admissible margin. *)
+  (** converts a {{!type:t} message} into a string by formatting it with the
+      maximum admissible margin. *)
   val to_string : t -> string
 
   (** alias of {{!val:create} [Message.create]}. *)
@@ -93,14 +98,17 @@ end
 module Label : sig
   (** The type of labels.
 
-      Labels describe an underlined region of code associated with a diagnostic. *)
+      Labels describe an underlined region of code associated with a
+      diagnostic. *)
   type t =
-    { range : Range.t (** The range we are going to include in the rendered diagnostic. *)
+    { range : Range.t
+      (** The range we are going to include in the rendered 
+          diagnostic. *)
     ; priority : Priority.t (** The priority (or style) of the label. *)
     ; message : Message.t
       (** A message providing additional information for the underlined code. *)
     }
-  [@@deriving equal, hash, sexp]
+  [@@deriving sexp]
 
   (** [create ~range ~priority message] constructs a label.
 
@@ -108,13 +116,15 @@ module Label : sig
       @param priority the priority of the label. *)
   val create : range:Range.t -> priority:Priority.t -> Message.t -> t
 
-  (** [createf ~range ~priority fmt ...] constructs a label with a formatted message.
+  (** [createf ~range ~priority fmt ...] constructs a label with a formatted
+      message.
 
       @param range the range to underline.
       @param priority the priority of the label. *)
   val createf : range:Range.t -> priority:Priority.t -> ('a, t) format -> 'a
 
-  (** [kcreatef ~range ~priority kont fmt ...] is equivalent to [kont (createf ~range ~priority fmt ...)].
+  (** [kcreatef ~range ~priority kont fmt ...] is equivalent to [kont (createf
+      ~range ~priority fmt ...)].
 
       @param range the range to underline.
       @param priority the priority of the label. *)
@@ -125,22 +135,28 @@ module Label : sig
     -> ('a, 'b) format
     -> 'a
 
-  (** [primary ~range message] is equivalent to [create ~range ~priority:Primary message]. *)
+  (** [primary ~range message] is equivalent to [create ~range
+      ~priority:Primary message]. *)
   val primary : range:Range.t -> Message.t -> t
 
-  (** [primaryf ~range fmt ...] is equivalent to [createf ~range ~priority:Primary fmt ...]. *)
+  (** [primaryf ~range fmt ...] is equivalent to [createf ~range
+      ~priority:Primary fmt ...]. *)
   val primaryf : range:Range.t -> ('a, t) format -> 'a
 
-  (** [kprimaryf ~range kont fmt ...] is equivalent to [kcreatef ~range ~priority:Primary kont fmt ...]. *)
+  (** [kprimaryf ~range kont fmt ...] is equivalent to [kcreatef ~range
+      ~priority:Primary kont fmt ...]. *)
   val kprimaryf : range:Range.t -> (t -> 'b) -> ('a, 'b) format -> 'a
 
-  (** [secondary ~range message] is equivalent to [create ~range ~priority:Secondary message]. *)
+  (** [secondary ~range message] is equivalent to [create ~range
+      ~priority:Secondary message]. *)
   val secondary : range:Range.t -> Message.t -> t
 
-  (** [secondaryf ~range fmt ...] is equivalent to [createf ~range ~priority:Secondary fmt ...]. *)
+  (** [secondaryf ~range fmt ...] is equivalent to [createf ~range
+      ~priority:Secondary fmt ...]. *)
   val secondaryf : range:Range.t -> ('a, t) format -> 'a
 
-  (** [ksecondaryf ~range kont fmt ...] is equivalent to [kcreatef ~range ~priority:Secondary kont fmt ...]. *)
+  (** [ksecondaryf ~range kont fmt ...] is equivalent to [kcreatef ~range
+      ~priority:Secondary kont fmt ...]. *)
   val ksecondaryf : range:Range.t -> (t -> 'b) -> ('a, 'b) format -> 'a
 end
 
@@ -148,9 +164,11 @@ end
 type 'code t =
   { severity : Severity.t (** The overall severity of the diagnostic. *)
   ; message : Message.t
-    (** The main message associated with the diagnostic. These should not include control characters (such as the newline character [\n]).
-      To support compact rendering, the message should be specific enough to make sense on its own, without the additional context provided
-      by labels and notes. *)
+    (** The main message associated with the diagnostic. These should not
+        include control characters (such as the newline character [\n]). To
+        support compact rendering, the message should be specific enough to
+        make sense on its own, without the additional context provided by
+        labels and notes. *)
   ; code : 'code option (** The (optional) error code assicoated with the diagnostic *)
   ; labels : Label.t list
     (** Labels that describe the cause of the diagnostic. The order of the labels has no meaning,
@@ -162,8 +180,8 @@ type 'code t =
 
 (** [create severity message] constructs a diagnostic with the [message].
 
-    @param notes additional notes associated with the primary cause of the diagnostic.
-    @param labels used to describe the cause of the diagnostic.
+    @param notes additional notes associated with the primary cause of the
+    diagnostic. @param labels used to describe the cause of the diagnostic.
     @param code the error code of the diagnostic. *)
 val create
   :  ?notes:Message.t list
@@ -175,8 +193,8 @@ val create
 
 (** [createf severity fmt ...] formats a message and constructs a diagnostic.
 
-    @param notes additional notes associated with the primary cause of the diagnostic.
-    @param labels used to describe the cause of the diagnostic.
+    @param notes additional notes associated with the primary cause of the
+    diagnostic. @param labels used to describe the cause of the diagnostic.
     @param code the error code of the diagnostic. *)
 val createf
   :  ?notes:Message.t list
@@ -186,7 +204,8 @@ val createf
   -> ('a, 'code t) format
   -> 'a
 
-(** [kcreatef kont severity fmt ...] is equivalent to [kont (createf severity fmt ...)].
+(** [kcreatef kont severity fmt ...] is equivalent to [kont (createf severity
+    fmt ...)].
 
     @param notes additional notes associated with the primary cause of the diagnostic.
     @param labels used to describe the cause of the diagnostic. *)

@@ -160,13 +160,15 @@ type t =
 
 let no_color =
   match Sys.getenv "NO_COLOR" with
-  | None | Some "" -> false
+  | exception Not_found -> false
+  | "" -> false
   | _ -> true
 ;;
 
 let is_rich_term =
   match Sys.getenv "TERM" with
-  | None | Some "" | Some "dumb" -> false
+  | exception Not_found -> false
+  | "" | "dumb" -> false
   | _ -> true
 ;;
 

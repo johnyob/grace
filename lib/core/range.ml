@@ -1,4 +1,4 @@
-open Import
+open Grace_std
 open Index
 
 module T = struct
@@ -7,9 +7,10 @@ module T = struct
     ; stop : Byte_index.t
     ; source : Source.t
     }
-  [@@deriving equal, hash, sexp]
+  [@@deriving sexp]
 
   let compare t1 t2 =
+    assert (Source.(t1.source = t2.source));
     let start_cmp = Byte_index.compare t1.start t2.start in
     if start_cmp = 0 then Byte_index.compare t1.stop t2.stop else start_cmp
   ;;
@@ -40,12 +41,8 @@ let check_invariants { start; stop; source } =
       ()
 ;;
 
-let invariant t =
-  Invariant.invariant [%here] t [%sexp_of: t] (fun () -> check_invariants t)
-;;
-
 let pp ppf { start; stop; source = _ } =
-  Format.fprintf ppf "[%a, %a)" Byte_index.pp start Byte_index.pp stop
+  Fmt.pf ppf "[%a, %a)" Byte_index.pp start Byte_index.pp stop
 ;;
 
 let create ~source start stop =

@@ -1,0 +1,6 @@
+(library
+ (name grace_std)
+ (public_name grace.std)
+ (libraries
+  sexplib
+  (re_export fmt)))

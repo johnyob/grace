@@ -133,7 +133,8 @@ let%expect_test "same_line" =
         = For more information about this error, try `rustc --explain`
 
     error: aborting due to previous error
-     = For more information about this error, try `rustc --explain` |}]
+     = For more information about this error, try `rustc --explain`
+    |}]
 ;;
 
 let%expect_test "overlapping" =
@@ -344,7 +345,8 @@ let%expect_test "overlapping" =
 
     error: aborting due 5 previous errors
      = Some errors have detailed explanations: ...
-     = For more information about an error, try `rustc --explain` |}]
+     = For more information about an error, try `rustc --explain`
+    |}]
 ;;
 
 let%expect_test "same ranges" =
@@ -372,7 +374,8 @@ let%expect_test "same ranges" =
         │      Unexpected '{'
         │      Expected '('
 
-    same_range:1:5: error: unexpected token |}]
+    same_range:1:5: error: unexpected token
+    |}]
 ;;
 
 let%expect_test "multiline_overlapping" =
@@ -440,7 +443,8 @@ let%expect_test "multiline_overlapping" =
         = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError`
 
     file.rs:4:34: error: match arms have incompatible types
-     = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError` |}]
+     = expected `Result<ByteIndex, LineIndexOutOfBoundsError>`, found `LineIndexOutOfBoundsError`
+    |}]
 ;;
 
 let%expect_test "unicode" =

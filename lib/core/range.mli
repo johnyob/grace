@@ -1,4 +1,4 @@
-open Core
+open Grace_std
 open Index
 
 (** Grace's {e ranges} are opaque {{!type:Byte_index.t} byte index} intervals of the form {e \[start, stop)}
@@ -10,10 +10,9 @@ open Index
     + [stop <= eos], where [eos] is the end-of-source position, also known as the {{!val:Source.length} source length}, of [source] *)
 
 (** The abstract type of ranges. *)
-type t [@@deriving equal, compare, hash, sexp]
+type t [@@deriving sexp]
 
 include Comparable.S with type t := t
-include Invariant.S with type t := t
 include Pretty_printer.S with type t := t
 
 (** [create ~source start stop] builds the range {e \[start, stop)} (not including the byte at the ending position) from the byte indices [start] and [stop].
