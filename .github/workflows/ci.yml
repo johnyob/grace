@@ -23,7 +23,18 @@ jobs:
       - run: nix --version
 
       - name: Lint commits 
-        run: nix --accept-flake-config run .#ci-cz-check
+        if: github.event_name == 'pull_request'
+        run: |
+          nix --accept-flake-config run .#ci-cz -- check \
+            --rev-range ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+
+
+      - name: Lint commits 
+        if: github.event_name == 'push'
+        run: |
+          nix --accept-flake-config run .#ci-cz -- check \
+            --rev-range ${{ github.event.before }}..${{ github.event.head }}
+
 
       - name: Build and Check 
         run: nix --accept-flake-config flake check -j auto
