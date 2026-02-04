@@ -289,18 +289,38 @@ module Of_diagnostic = struct
              end of the line ... *)
           if Byte_index.(cursor = idx) && Byte_index.(idx < eol)
           then (
-            let priority_count, cursor_msgs =
-              match start_or_stop with
-              | `Start msg ->
-                (* and the point defined a start of a message, we increment the priority counter
-                   and add the label to the cursor labels. *)
-                ( Priority_count.start priority_count ~priority
-                , (priority, msg) :: cursor_labels )
-              | `Stop ->
-                (* and the point defined a end of a message, we decrement the priority counter. *)
-                Priority_count.stop priority_count ~priority, cursor_labels
-            in
-            rev_segments, priority_count, cursor, cursor_msgs)
+            match start_or_stop with
+            | `Start msg ->
+              (* and the point defined a start of a message, we increment the priority counter
+                 and add the label to the cursor labels. *)
+              ( rev_segments
+              , Priority_count.start priority_count ~priority
+              , cursor
+              , (priority, msg) :: cursor_labels )
+            | `Stop ->
+              (* and the point defined an end of a message, we decrement the priority counter.
+                 For empty ranges (where Start and Stop are at same position),
+                 create a zero-length segment to carry the inline labels. *)
+              let rev_segments =
+                if List.is_empty cursor_labels
+                then rev_segments
+                else (
+                  (* If the list of cursor_labels is non-empty,
+                     it means that a `Start was just processed at the same position,
+                     and hence the segment is empty.
+                     We create an empty segment with the current cursor_labels,
+                     otherwise they remain unused
+                     (see https://github.com/johnyob/grace/issues/1) *)
+                  let segment =
+                    Line.
+                      { content = ""
+                      ; length = 0
+                      ; stag = Some { priority; inline_labels = cursor_labels }
+                      }
+                  in
+                  segment :: rev_segments)
+              in
+              rev_segments, Priority_count.stop priority_count ~priority, cursor, [])
           else (
             (* otherwise, we create a segment from 'cursor' to 'idx' and set 'cursor' to 'idx' *)
             let content = Source_reader.slicei sd cursor idx in
