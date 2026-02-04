@@ -569,6 +569,29 @@ let%expect_test "unicode spans" =
     Raised: (Invalid_argument "invalid UTF-8") |}]
 ;;
 
+let%expect_test "empty range" =
+  (* Bug #1: https://github.com/johnyob/grace/issues/1 *)
+  let source = source "hello.txt" "Hello world!\nBye world!\n   " in
+  let diagnostics =
+    Diagnostic.
+      [ createf
+          ~labels:[ Label.primaryf ~range:(range ~source 6 6) "middle" ]
+          Note
+          "empty range"
+      ]
+  in
+  pr_diagnostics diagnostics;
+  [%expect
+    {|
+    note: empty range
+        ┌─ hello.txt:1:7
+      1 │  Hello world!
+        │        ^ middle
+
+    hello.txt:1:7: note: empty range
+    |}]
+;;
+
 let%expect_test "multi-line empty messages" =
   let source =
     source
