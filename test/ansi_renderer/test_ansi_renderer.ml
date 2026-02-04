@@ -679,3 +679,61 @@ let%expect_test "multi-line empty messages" =
     rigid_variable_escape.ml:2:3: error: generic type variable `a` escapes its scope
     |}]
 ;;
+
+let snippet_ml_source : Source.t = `File "inputs/snippet.ml"
+
+let%expect_test "multi-label on large file" =
+  let source = snippet_ml_source in
+  let diagnostics (a1, b1) (a2, b2) =
+    Diagnostic.
+      [ createf
+          ~labels:
+            [ Label.primaryf ~range:(range ~source a1 b1) "Error is happening here"
+            ; Label.primaryf ~range:(range ~source a2 b2) "Bananad from here"
+            ]
+          Error
+          "Some dramatic error"
+      ]
+  in
+  pr_diagnostics (diagnostics (2951, 3015) (17511, 17537));
+  [%expect
+    {|
+    error: Some dramatic error
+        ┌─ inputs/snippet.ml:542:21
+    148 │           ~compare:(Comparable.pair Diagnostic.Priority.compare Byte_index.compare)
+        │                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Error is happening here
+        ·
+    542 │          let locus = locus_of_labels ~sd labels in
+        │                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ Bananad from here
+
+    inputs/snippet.ml:542:21: error: Some dramatic error
+    |}];
+  (* Also works with 1- and 2-digits line numbers *)
+  pr_diagnostics (diagnostics (1474, 1493) (84, 107));
+  [%expect
+    {|
+    error: Some dramatic error
+        ┌─ inputs/snippet.ml:73:18
+      5 │  let margin_length_of_string line_content =
+        │      ^^^^^^^^^^^^^^^^^^^^^^^ Bananad from here
+        ·
+     73 │      let length = Utf8.length content in
+        │                   ^^^^^^^^^^^^^^^^^^^ Error is happening here
+
+    inputs/snippet.ml:73:18: error: Some dramatic error
+    |}];
+  (* Check that there is no ellipsis if there is a gap of size 1 *)
+  pr_diagnostics (diagnostics (84, 107) (195, 205));
+  [%expect
+    {|
+    error: Some dramatic error
+        ┌─ inputs/snippet.ml:7:6
+      5 │  let margin_length_of_string line_content =
+        │      ^^^^^^^^^^^^^^^^^^^^^^^ Error is happening here
+      6 │    (* This is valid for UTF8 as all the whitespace characters we're
+      7 │       interested in wrt a 'margin' have a width of 1. *)
+        │       ^^^^^^^^^^ Bananad from here
+
+    inputs/snippet.ml:7:6: error: Some dramatic error
+    |}]
+;;
