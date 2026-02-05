@@ -465,7 +465,7 @@ module Of_diagnostic = struct
                 (* Inline label *)
                 Line_labels.add_inline_label line_labels label;
                 false)
-              else if Byte_index.(line_start <= label_start && label_start <= line_stop)
+              else if Byte_index.(line_start <= label_start && label_start < line_stop)
               then (
                 (* Multi-line label that starts *)
                 Line_labels.add_multi_line_label line_labels
