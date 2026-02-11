@@ -622,6 +622,30 @@ let%expect_test "multiline label starting after newline" =
     |}]
 ;;
 
+let%expect_test "label starting on EOF/EOL" =
+  (* Bug #37: https://github.com/johnyob/grace/issues/37 *)
+  let content = "let x :" in
+  let source = source "eof.ml" content in
+  let diagnostics =
+    Diagnostic.
+      [ createf
+          ~labels:[ Label.primaryf ~range:(range ~source 7 7) "Unexpected EOF here" ]
+          Error
+          "syntax error"
+      ]
+  in
+  pr_diagnostics diagnostics;
+  [%expect
+    {|
+    error: syntax error
+        ┌─ eof.ml:1:8
+      1 │  let x :
+        │         ^ Unexpected EOF here
+
+    eof.ml:1:8: error: syntax error
+    |}]
+;;
+
 let%expect_test "multi-line empty messages" =
   let source =
     source
