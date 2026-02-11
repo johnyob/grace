@@ -17,10 +17,8 @@ jobs:
           - ubuntu-latest
           - windows-latest
         ocaml-compiler:
-          - ocaml-base-compiler.4.14.0
-          - ocaml-base-compiler.5.0.0
-          - ocaml-base-compiler.5.1.0
-          - ocaml-base-compiler.5.2.0
+          - ocaml-base-compiler.4.14.2
+          - ocaml-base-compiler.5.4.0
     steps:
       - uses: actions/checkout@v5
 
