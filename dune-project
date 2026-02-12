@@ -26,6 +26,8 @@
    (>= 0.8.7))
   iter
   uutf
+  sexplib
+  ppx_sexp_conv
   (dedent :with-test)
   (core :with-test)
   (ppx_jane :with-test)

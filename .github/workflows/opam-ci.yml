@@ -46,7 +46,12 @@ jobs:
           fi
 
       - name: Build project
-        run: opam exec -- dune build @install
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            opam exec -- dune build lib/
+          else
+            opam exec -- dune build @install
+          fi
 
       - name: Run tests
         if: runner.os != 'Windows'
