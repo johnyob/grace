@@ -90,6 +90,7 @@
                 ocamlPackages.merlin-lib
                 ocamlPackages.ocaml
                 ocamlPackages.dune
+                ocamlPackages.dune-release
               ]
               ++ pre-commit-check.enabledPackages;
           };

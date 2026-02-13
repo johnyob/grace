@@ -15,7 +15,7 @@
 
 (package
  (name grace)
- (version 0.2.0)
+ (version 0.3.0)
  (synopsis
   "A fancy diagnostics library that allows your compilers to exit with grace")
  (depends
@@ -26,6 +26,8 @@
    (>= 0.8.7))
   iter
   uutf
+  sexplib
+  ppx_sexp_conv
   (dedent :with-test)
   (core :with-test)
   (ppx_jane :with-test)
