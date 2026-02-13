@@ -15,7 +15,7 @@
 
 (package
  (name grace)
- (version 0.2.0)
+ (version 0.3.0)
  (synopsis
   "A fancy diagnostics library that allows your compilers to exit with grace")
  (depends

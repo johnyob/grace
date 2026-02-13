@@ -1,6 +1,18 @@
-## Unreleased
+## 0.3.0 (2025-02-13)
 
-* fix(core): use `Format.pp_infinity` in `Message.to_string` for OCaml >5.2 ([#40](https://github.com/johnyob/grace/pull/40)
+- feat(renderer): add breaks in large diagnostics ([#63](https://github.com/johnyob/grace/pull/63))
+- feat(renderer): check for tty when rendering ([#60](https://github.com/johnyob/grace/pull/60))
+- fix(renderer): off-by-one in `lines_of_labels` ([#65](https://github.com/johnyob/grace/pull/65))
+- fix(renderer): create 0-sized segment on empty label range ([#64](https://github.com/johnyob/grace/pull/64))
+- fix(renderer): renderer multi-line labels when message is empty ([#53](https://github.com/johnyob/grace/pull/53))
+- fix(renderer): fix errors that occur with special zero-width segments ([#41](https://github.com/johnyob/grace/pull/41))
+- fix(renderer): use `Format.pp_infinity` in `Message.to_string` for OCaml >5.2 ([#40](https://github.com/johnyob/grace/pull/40))
+- refactor!: removes base/core dependency ([#58](https://github.com/johnyob/grace/pull/58))
+
+### BREAKING CHANGE
+
+* Many base/core interfaces from `Grace` have been replaced with custom ones.
+* `Source.reader` has been removed. Use `Source.Reader.t` instead. 
 
 ## 0.2.0 (2024-05-28)
 
