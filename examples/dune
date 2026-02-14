@@ -1,5 +1,4 @@
 (executable
  (name main)
- (public_name main)
- (libraries core dedent grace grace.ansi_renderer)
- (package grace))
+ (modes exe)
+ (libraries core dedent grace grace.ansi_renderer))
