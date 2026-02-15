@@ -15,16 +15,15 @@ jobs:
         os:
           - macos-latest
           - ubuntu-latest
+          - windows-latest
         ocaml-compiler:
-          - ocaml-base-compiler.4.14.0
-          - ocaml-base-compiler.5.0.0
-          - ocaml-base-compiler.5.1.0
-          - ocaml-base-compiler.5.2.0
+          - ocaml-base-compiler.4.14.2
+          - ocaml-base-compiler.5.4.0
     steps:
       - uses: actions/checkout@v5
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
-        uses: ocaml/setup-ocaml@v3
+        uses: avsm/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
@@ -37,13 +36,25 @@ jobs:
             $GITHUB_WORKSPACE/_opam
           key: opam-${{ matrix.os }}-${{ matrix.ocaml-compiler }}-${{ hashFiles('*.opam') }}
 
-      - name: Install opam dependencies
-        run: opam install --deps-only --with-test .
+      - name: Install opam dependencies (with tests if supported)
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            opam install --deps-only .
+          else
+            opam install --deps-only --with-test .
+          fi
 
       - name: Build project
-        run: opam exec -- dune build @install
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            opam exec -- dune build lib/
+          else
+            opam exec -- dune build @install
+          fi
 
       - name: Run tests
+        if: runner.os != 'Windows'
         run: opam exec -- dune test
 
       - name: Save opam cache 
