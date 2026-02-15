@@ -30,7 +30,7 @@ jobs:
 
       - name: Restore opam cache
         id: opam-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/.opam
@@ -47,7 +47,7 @@ jobs:
         run: opam exec -- dune test
 
       - name: Save opam cache 
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with: 
           path: | 
             ~/.opam 
