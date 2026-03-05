@@ -10,10 +10,10 @@ let range ~source start stop =
   Range.create ~source (Byte_index.of_int start) (Byte_index.of_int stop)
 ;;
 
-let pr_diagnostics diagnostics =
+let pr_diagnostics ?(config = Grace_ansi_renderer.Config.default) diagnostics =
   let open Grace_ansi_renderer in
   (* Disable colors for tests (since expect tests don't support ANSI colors) *)
-  let config = Config.{ default with use_ansi = Some false } in
+  let config = { config with use_ansi = Some false } in
   Fmt.(
     list
       ~sep:(fun ppf () -> pf ppf "@.@.@.")
@@ -25,9 +25,9 @@ let pr_diagnostics diagnostics =
     diagnostics
 ;;
 
-let pr_bad_diagnostics diagnostics =
+let pr_bad_diagnostics ?(config = Grace_ansi_renderer.Config.default) diagnostics =
   let open Grace_ansi_renderer in
-  let config = Config.{ default with use_ansi = Some false } in
+  let config = { config with use_ansi = Some false } in
   Fmt.(
     list
       ~sep:(fun ppf () -> pf ppf "@.@.")
@@ -735,5 +735,190 @@ let%expect_test "multi-label on large file" =
         │       ^^^^^^^^^^ Bananad from here
 
     inputs/snippet.ml:7:6: error: Some dramatic error
+    |}]
+;;
+
+let num_contextual_lines_test num_contextual_lines =
+  let config = Grace_ansi_renderer.Config.{ default with num_contextual_lines } in
+  let source =
+    source
+      "context.ml"
+      {|
+      > line 1
+      > line 2
+      > line 3
+      > line 4
+      > line 5
+      > line 6
+      > line 7
+      > line 8
+      > line 9
+      > line 10
+      |}
+  in
+  let diagnostics =
+    Diagnostic.
+      [ createf
+          ~labels:
+            [ Label.primaryf ~range:(range ~source 7 13) "error on line 2"
+            ; Label.primaryf ~range:(range ~source 38 44) "error on line 6"
+            ]
+          Error
+          "Testing %d contextual lines"
+          num_contextual_lines
+      ]
+  in
+  pr_diagnostics ~config diagnostics
+;;
+
+let%expect_test "num_contextual_lines = 0" =
+  num_contextual_lines_test 0;
+  [%expect
+    {|
+    error: Testing 0 contextual lines
+        ┌─ context.ml:6:4
+      2 │    line 2
+        │    ^^^^^^ error on line 2
+        ·
+      6 │    line 6
+        │ ╭─────^
+      7 │ │  line 7
+        │ ╰───^ error on line 6
+
+    context.ml:6:4: error: Testing 0 contextual lines
+    |}]
+;;
+
+let%expect_test "num_contextual_lines = 2" =
+  num_contextual_lines_test 2;
+  [%expect
+    {|
+    error: Testing 2 contextual lines
+        ┌─ context.ml:6:4
+      2 │    line 2
+        │    ^^^^^^ error on line 2
+      3 │    line 3
+      4 │    line 4
+      5 │    line 5
+      6 │    line 6
+        │ ╭─────^
+      7 │ │  line 7
+        │ ╰───^ error on line 6
+      8 │    line 8
+      9 │    line 9
+
+    context.ml:6:4: error: Testing 2 contextual lines
+    |}]
+;;
+
+let%expect_test "num_contextual_lines = 3" =
+  num_contextual_lines_test 3;
+  [%expect
+    {|
+    error: Testing 3 contextual lines
+        ┌─ context.ml:6:4
+      2 │    line 2
+        │    ^^^^^^ error on line 2
+      3 │    line 3
+      4 │    line 4
+      5 │    line 5
+      6 │    line 6
+        │ ╭─────^
+      7 │ │  line 7
+        │ ╰───^ error on line 6
+      8 │    line 8
+      9 │    line 9
+     10 │    line 10
+
+    context.ml:6:4: error: Testing 3 contextual lines
+    |}]
+;;
+
+let enable_inline_contextual_lines_test
+      ~enable_inline_contextual_lines
+      ~num_contextual_lines
+  =
+  let source =
+    source
+      "inline.ml"
+      {|
+      > line 1
+      > line 2
+      > line 3
+      > line 4
+      > line 5
+      |}
+  in
+  let diagnostics =
+    Diagnostic.
+      [ createf
+          ~labels:
+            [ Label.primaryf ~range:(range ~source 7 9) "inline"
+            ; Label.secondaryf ~range:(range ~source 10 13) "label"
+            ]
+          Error
+          "Testing inline labels without contextual lines"
+      ]
+  in
+  let open Grace_ansi_renderer in
+  let config =
+    Config.{ default with enable_inline_contextual_lines; num_contextual_lines }
+  in
+  pr_diagnostics ~config diagnostics
+;;
+
+let%expect_test "enable_inline_contextual_lines = false (default)" =
+  enable_inline_contextual_lines_test
+    ~enable_inline_contextual_lines:false
+    ~num_contextual_lines:1;
+  [%expect
+    {|
+    error: Testing inline labels without contextual lines
+        ┌─ inline.ml:2:1
+      2 │  line 2
+        │  ^^ --- label
+        │  │
+        │  inline
+
+    inline.ml:2:1: error: Testing inline labels without contextual lines
+    |}]
+;;
+
+let%expect_test "enable_inline_contextual_lines = true" =
+  enable_inline_contextual_lines_test
+    ~enable_inline_contextual_lines:true
+    ~num_contextual_lines:1;
+  [%expect
+    {|
+    error: Testing inline labels without contextual lines
+        ┌─ inline.ml:2:1
+      1 │  line 1
+      2 │  line 2
+        │  ^^ --- label
+        │  │
+        │  inline
+      3 │  line 3
+
+    inline.ml:2:1: error: Testing inline labels without contextual lines
+    |}]
+;;
+
+let%expect_test "num_contextual_lines = 2 and enable_inline_contextual_lines = true" =
+  enable_inline_contextual_lines_test
+    ~enable_inline_contextual_lines:true
+    ~num_contextual_lines:2;
+  [%expect
+    {|
+    error: Testing inline labels without contextual lines
+        ┌─ inline.ml:2:1
+      1 │  line 1
+      2 │  line 2
+        │  ^^ --- label
+        │  │
+        │  inline
+      3 │  line 3
+      4 │  line 4
+
+    inline.ml:2:1: error: Testing inline labels without contextual lines
     |}]
 ;;

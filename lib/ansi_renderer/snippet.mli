@@ -86,7 +86,7 @@ and 'code t =
 [@@deriving sexp]
 
 (** [of_diagnostic diagnostic] returns the ('rich') snippet compiled from the [diagnostic]. *)
-val of_diagnostic : 'code Diagnostic.t -> 'code t
+val of_diagnostic : 'code Diagnostic.t -> config:Config.t -> 'code t
 
 (** [compact_of_diagnostic diagnostic] returns the 'compact' snippet compiled from the [diagnostic]. *)
-val compact_of_diagnostic : 'code Diagnostic.t -> 'code t
+val compact_of_diagnostic : 'code Diagnostic.t -> config:Config.t -> 'code t

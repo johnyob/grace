@@ -11,7 +11,9 @@ let of_snippet_renderer
       x
       diagnostic
   =
-  let snippet = Source_reader.with_reader @@ fun () -> snippet_of_diagnostic diagnostic in
+  let snippet =
+    Source_reader.with_reader @@ fun () -> snippet_of_diagnostic diagnostic ~config
+  in
   f ~config ~code_to_string x snippet
 ;;
 
@@ -62,7 +64,9 @@ let of_snippet_renderer
       ?(code_to_string = default_code_to_string)
       diagnostic
   =
-  let snippet = Source_reader.with_reader @@ fun () -> snippet_of_diagnostic diagnostic in
+  let snippet =
+    Source_reader.with_reader @@ fun () -> snippet_of_diagnostic diagnostic ~config
+  in
   f ~config ~code_to_string snippet
 ;;
 

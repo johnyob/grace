@@ -156,6 +156,8 @@ type t =
   { chars : Chars.t
   ; styles : Style_sheet.t
   ; use_ansi : bool option
+  ; num_contextual_lines : int
+  ; enable_inline_contextual_lines : bool
   }
 
 let no_color =
@@ -174,5 +176,10 @@ let style_renderer t =
 
 let default =
   let styles = if no_color then Style_sheet.(no_color default) else Style_sheet.default in
-  { chars = Chars.unicode; styles; use_ansi = None }
+  { chars = Chars.unicode
+  ; styles
+  ; num_contextual_lines = 1
+  ; enable_inline_contextual_lines = false
+  ; use_ansi = None
+  }
 ;;
