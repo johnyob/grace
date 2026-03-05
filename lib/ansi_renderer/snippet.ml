@@ -111,6 +111,13 @@ module Line = struct
     ; margin_length : int
     }
   [@@deriving sexp]
+
+  let is_multi_line_labels_empty t = List.is_empty t.multi_line_labels
+
+  let is_inline_labels_empty t =
+    (* If a line has more than one segment => inline labels *)
+    List.length t.segments <= 1
+  ;;
 end
 
 type block =
@@ -360,34 +367,69 @@ module Of_diagnostic = struct
     }
   ;;
 
-  let add_contextual_lines ~sd lines =
+  let add_contextual_lines ~sd ~(config : Config.t) lines =
+    let contextual_lines ~start ~stop ~clamp ~direction =
+      (* Invariant: [start <> stop] *)
+      let offset =
+        match direction with
+        | `Down_to -> -1
+        | `To -> 1
+      in
+      let[@tail_mod_cons] rec loop curr_line_index remaining_contextual_lines =
+        if remaining_contextual_lines = 0
+        then []
+        else (
+          let remaining_contextual_lines = remaining_contextual_lines - 1 in
+          match stop with
+          | None ->
+            if Line_index.(curr_line_index = clamp)
+            then
+              (* No next line, but it doesn't exist anyway! *)
+              []
+            else (
+              let next_line_index = Line_index.(add curr_line_index offset) in
+              line_of_idx ~sd next_line_index
+              :: loop next_line_index remaining_contextual_lines)
+          | Some stop ->
+            (* There is a next line. Hence the current line cannot be the last line [clamp]. *)
+            assert (Line_index.(curr_line_index <> clamp));
+            let next_line_index = Line_index.(add curr_line_index offset) in
+            if Line_index.(next_line_index = stop.line)
+            then []
+            else
+              line_of_idx ~sd next_line_index
+              :: loop next_line_index remaining_contextual_lines)
+      in
+      let lines = loop start.line config.num_contextual_lines in
+      match direction with
+      | `Down_to -> List.rev lines
+      | `To -> lines
+    in
     (* A contextual line is a line satisfying one of:
-       + withing +/-1 lines of a multi-line label (top or bottom) ('multi line label contextual lines')
+       + withing +/-1 lines of lines containing labels 
        + between two other rendered lines ('gap' contextual lines) *)
     let add_multi_line_label_contextual_lines =
       List.concat_map_with_next_and_prev
         ~f:(fun (l2 : Line.t with_line) ~prev:l1 ~next:l3 ->
-          if List.is_empty l2.it.multi_line_labels
+          if
+            Line.is_multi_line_labels_empty l2.it
+            && ((not config.enable_inline_contextual_lines)
+                || Line.is_inline_labels_empty l2.it)
           then [ l2 ]
           else (
-            let next_line = Line_index.(add l2.line 1) in
             let prefix =
-              match l1 with
-              | None when Line_index.(l2.line > initial) ->
-                (* No preceeding line and [l2] isn't the first line *)
-                [ line_of_idx ~sd Line_index.(sub l2.line 1) ]
-              | Some l1 when Line_index.(diff l2.line l1.line) > 1 ->
-                (* Preceeding line is not the immediately preceeding line to [l2] *)
-                [ line_of_idx ~sd Line_index.(sub l2.line 1) ]
-              | _ -> []
+              contextual_lines
+                ~start:l2
+                ~stop:l1
+                ~clamp:Line_index.initial
+                ~direction:`Down_to
             in
             let postfix =
-              match l3 with
-              | None when Line_index.(next_line < (Source_reader.Line.last sd).idx) ->
-                [ line_of_idx ~sd next_line ]
-              | Some l3 when Line_index.(diff l3.line l2.line) > 1 ->
-                [ line_of_idx ~sd next_line ]
-              | _ -> []
+              contextual_lines
+                ~start:l2
+                ~stop:l3
+                ~clamp:Line_index.(sub (Source_reader.Line.last sd).idx 1)
+                ~direction:`To
             in
             prefix @ [ l2 ] @ postfix))
     in
@@ -511,11 +553,11 @@ module Of_diagnostic = struct
     List.rev rev_lines
   ;;
 
-  let block_of_labels ~sd labels =
-    labels |> lines_of_labels ~sd |> add_contextual_lines ~sd |> group
+  let block_of_labels ~sd ~config labels =
+    labels |> lines_of_labels ~sd |> add_contextual_lines ~sd ~config |> group
   ;;
 
-  let of_diagnostic Diagnostic.{ severity; message; code; labels; notes } =
+  let of_diagnostic Diagnostic.{ severity; message; code; labels; notes } ~config =
     let sources =
       labels
       |> group_labels_by_source
@@ -523,7 +565,7 @@ module Of_diagnostic = struct
         let sd = Source_reader.open_source source in
         { source
         ; locus = locus_of_labels ~sd labels
-        ; blocks = block_of_labels ~sd labels
+        ; blocks = block_of_labels ~sd ~config labels
         })
     in
     { severity; message; code; notes; sources = Rich sources }
@@ -533,7 +575,7 @@ end
 let of_diagnostic = Of_diagnostic.of_diagnostic
 
 module Compact_of_diagnostic = struct
-  let of_diagnostic Diagnostic.{ severity; message; code; labels; notes } =
+  let of_diagnostic Diagnostic.{ severity; message; code; labels; notes } ~config:_ =
     let sources =
       labels
       |> group_labels_by_source
