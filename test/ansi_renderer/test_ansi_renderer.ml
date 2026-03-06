@@ -1,6 +1,5 @@
 open! Core
 open! Grace
-open! Grace_std
 open Diagnostic
 
 let source name content : Source.t =
@@ -11,6 +10,8 @@ let range ~source start stop =
   Range.create ~source (Byte_index.of_int start) (Byte_index.of_int stop)
 ;;
 
+(* Useful for testing, since we want to be able to show that turning on ANSI
+ doesn't break the alignment of other things! *)
 (* This code is Copyright (c) 2017 The b0 programmers.
   SPDX-License-Identifier: ISC *)
 let strip_ansi_escapes s =
@@ -27,7 +28,7 @@ let strip_ansi_escapes s =
     then loop i i
     else (
       let k = i + 1 in
-      if s.[i] = 'm' then loop k k else skip_esc k)
+      if Char.equal s.[i] 'm' then loop k k else skip_esc k)
   and loop start i =
     match i > max with
     | true ->
@@ -557,7 +558,8 @@ let%expect_test "unicode" =
        - unadjusted
        - vectorcall
        - win64
-       - x86-interrupt |}]
+       - x86-interrupt
+    |}]
 ;;
 
 let%expect_test "unicode spans" =
@@ -1005,8 +1007,8 @@ let%expect_test "label with multiple lines and ansi formatting" =
       3 │ ╭  bar {
       4 │ │  };
         │ ╰────' e2:
-                                         new line of error 2
-                                       unboxed new line of error 2
+        │          new line of error 2
+        │ unboxed new line of error 2
       5 │    baz
 
     unknown:1:1: error: err
@@ -1020,8 +1022,8 @@ let%expect_test "label with multiple lines and ansi formatting" =
       3 | /  bar {
       4 | |  };
         | \----' e2:
-          new line of error 2
-        unboxed new line of error 2
+        |          new line of error 2
+        | unboxed new line of error 2
       5 |    baz
 
     unknown:1:1: error: err
