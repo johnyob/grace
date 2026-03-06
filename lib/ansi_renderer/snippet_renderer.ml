@@ -8,21 +8,29 @@ let pp_label_styled ~(config : Config.t) ~severity ~priority pp =
   Fmt.styled_multi (Style_sheet.label config.styles priority severity) pp
 ;;
 
-let pp_label_styled_string ~config ~severity ~priority =
-  pp_label_styled ~config ~severity ~priority Fmt.string
+(** print a string as if it is length 1.
+    Useful for our unicode characters which are still visually length 1 *)
+let pp_single_char ppf = Format.pp_print_as ppf 1
+
+let pp_label_styled_char ~config ~severity ~priority =
+  pp_label_styled ~config ~severity ~priority pp_single_char
 ;;
 
 module Chars = struct
   let pp_source_border_left ~(config : Config.t) ppf () =
     Fmt.(
-      styled_multi config.styles.source_border string ppf config.chars.source_border_left)
+      styled_multi
+        config.styles.source_border
+        pp_single_char
+        ppf
+        config.chars.source_border_left)
   ;;
 
   let pp_source_border_left_break ~(config : Config.t) ppf () =
     Fmt.(
       styled_multi
         config.styles.source_border
-        string
+        pp_single_char
         ppf
         config.chars.source_border_left_break)
   ;;
@@ -33,19 +41,19 @@ module Chars = struct
       | Priority.Primary -> config.chars.single_primary_caret
       | Secondary -> config.chars.single_secondary_caret
     in
-    pp_label_styled_string ~config ~severity ~priority ppf caret
+    pp_label_styled_char ~config ~severity ~priority ppf caret
   ;;
 
   let pp_pointer_left ~(config : Config.t) ~severity ~priority ppf () =
-    pp_label_styled_string ~config ~severity ~priority ppf config.chars.pointer_left
+    pp_label_styled_char ~config ~severity ~priority ppf config.chars.pointer_left
   ;;
 
   let pp_multi_top ~(config : Config.t) ~severity ~priority ppf () =
-    pp_label_styled_string ~config ~severity ~priority ppf config.chars.multi_top
+    pp_label_styled_char ~config ~severity ~priority ppf config.chars.multi_top
   ;;
 
   let pp_multi_bottom ~(config : Config.t) ~severity ~priority ppf () =
-    pp_label_styled_string ~config ~severity ~priority ppf config.chars.multi_bottom
+    pp_label_styled_char ~config ~severity ~priority ppf config.chars.multi_bottom
   ;;
 
   let pp_multi_caret_start ~(config : Config.t) ~severity ~priority ppf () =
@@ -54,7 +62,7 @@ module Chars = struct
       | Priority.Primary -> config.chars.multi_primary_caret_start
       | Secondary -> config.chars.multi_secondary_caret_start
     in
-    pp_label_styled_string ~config ~severity ~priority ppf caret_start
+    pp_label_styled_char ~config ~severity ~priority ppf caret_start
   ;;
 
   let pp_multi_caret_end ~(config : Config.t) ~severity ~priority ppf () =
@@ -63,7 +71,7 @@ module Chars = struct
       | Priority.Primary -> config.chars.multi_primary_caret_end
       | Secondary -> config.chars.multi_secondary_caret_end
     in
-    pp_label_styled_string ~config ~severity ~priority ppf caret_end
+    pp_label_styled_char ~config ~severity ~priority ppf caret_end
   ;;
 
   let pp_snippet_start ~(config : Config.t) ppf () =
@@ -71,7 +79,7 @@ module Chars = struct
   ;;
 
   let pp_note_bullet ~(config : Config.t) ppf () =
-    Fmt.styled_multi config.styles.note_bullet Fmt.string ppf config.chars.note_bullet
+    Fmt.styled_multi config.styles.note_bullet pp_single_char ppf config.chars.note_bullet
   ;;
 end
 
@@ -144,7 +152,7 @@ let pp_multi_vertline ~(config : Config.t) ~severity ~priority ppf kind =
     | `Vertical -> config.chars.multi_left
     | `Bottom -> config.chars.multi_bottom_left
   in
-  pp_label_styled_string ~config ~severity ~priority ppf gutter
+  pp_label_styled_char ~config ~severity ~priority ppf gutter
 ;;
 
 let pp_multi_underline ~(config : Config.t) ~severity ~priority ppf kind =
@@ -200,7 +208,7 @@ let pp_source_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
     match segment.stag with
     | Some { priority = Primary; _ } ->
       (* If primary, style the content *)
-      pp_label_styled_string ~config ~severity ~priority:Primary ppf content
+      pp_label_styled ~config ~severity ~priority:Primary Fmt.string ppf content
     | _ ->
       (* Otherwise, simply print the content *)
       Fmt.string ppf content
@@ -244,11 +252,10 @@ let pbox ~prefix pp ppf x =
 ;;
 
 (* prefixed-with-indent box *)
-let pwibox ~prefix pp ppf x =
+let pwibox ~prefix ~nprefix pp ppf x =
   let s = Fmt.str_like ppf "%a" pp x in
   let lines = split_lines_nonempty s in
   let nlines = List.length lines in
-  let nprefix = String.length prefix in
   List.iteri lines ~f:(fun i line ->
     if i = 0
     then Fmt.pf ppf "@[<h>%s%s@]" prefix line
@@ -283,16 +290,15 @@ module Multi_line_label = struct
   ;;
 
   let pp_bottom ~config ~severity ppf (width, priority, label) =
-    let prefix =
-      Fmt.str_like
-        ppf
-        "%a%a "
-        (pp_underlines ~config ~severity ~priority ~width)
-        `Bottom
-        (Chars.pp_multi_caret_end ~config ~severity ~priority)
-        ()
-    in
-    pwibox ~prefix (pp_message ~config ~severity ~priority) ppf label
+    Fmt.pf
+      ppf
+      "%a%a %a"
+      (pp_underlines ~config ~severity ~priority ~width)
+      `Bottom
+      (Chars.pp_multi_caret_end ~config ~severity ~priority)
+      ()
+      (pp_message ~config ~severity ~priority)
+      label
   ;;
 
   let pp_content_top ~ctxt ~(top : Multi_line_label.t option) pp ppf x =
@@ -476,15 +482,17 @@ module Inline_labels = struct
 end
 
 let pp_multi_line_label ~config ~severity ~ctxt ppf multi_line_label =
-  Fmt.pf
-    ppf
-    "@[<h>%*s %a %a@]"
-    ctxt.line_num_width
-    ""
-    (Chars.pp_source_border_left ~config)
-    ()
-    (Multi_line_label.pp ~config ~severity ~ctxt)
-    multi_line_label
+  (* equivalent to lbox but without multi_line, as that is handled internally *)
+  let prefix =
+    Fmt.str_like
+      ppf
+      "%*s %a "
+      ctxt.line_num_width
+      ""
+      (Chars.pp_source_border_left ~config)
+      ()
+  in
+  pbox ~prefix (Multi_line_label.pp ~config ~severity ~ctxt) ppf multi_line_label
 ;;
 
 let pp_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
@@ -611,6 +619,7 @@ let pp_note ~config ~line_num_width ppf note =
   pwibox
     ~prefix:
       (Fmt.str_like ppf "%*s %a " line_num_width "" (Chars.pp_note_bullet ~config) ())
+    ~nprefix:(line_num_width + 3)
     Message.pp
     ppf
     note
