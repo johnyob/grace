@@ -91,7 +91,18 @@ let of_lex ?source (start, stop) =
 ;;
 
 let of_lexbuf ?source lexbuf =
-  let source = Option.value source ~default:(`File lexbuf.Lexing.lex_curr_p.pos_fname) in
+  let lex_fname = lexbuf.Lexing.lex_curr_p.pos_fname in
+  let source =
+    let default : Source.t =
+      if not String.(equal lex_fname "")
+      then `File lex_fname
+      else (
+        let id = Hashtbl.hash lexbuf in
+        let unsafe_get i = Bytes.get lexbuf.lex_buffer i in
+        `Reader { name = None; id; length = lexbuf.lex_buffer_len; unsafe_get })
+    in
+    Option.value source ~default
+  in
   create
     ~source
     (Byte_index.of_int @@ Lexing.lexeme_start lexbuf)

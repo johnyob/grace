@@ -193,3 +193,11 @@ let%expect_test _ =
     b: [0, 1)
     Range.are_disjoint a b: true |}]
 ;;
+
+let%expect_test _ =
+  let lexbuf = Lexing.from_string "test" in
+  let range = Range.of_lexbuf lexbuf in
+  let print a = Fmt.pr "@[<v>a: %a@]@." Range.pp a in
+  print range;
+  [%expect {| a: [0, 0)|}]
+;;
