@@ -1,7 +1,13 @@
 (library
  (name test_core)
- (modules import test_range)
- (libraries core fmt grace)
+ (modules import test_range test_source)
+ (libraries
+  core
+  core_unix
+  core_unix.sys_unix
+  core_unix.filename_unix
+  fmt
+  grace)
  (inline_tests)
  (preprocess
   (pps ppx_jane)))

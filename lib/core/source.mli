@@ -60,10 +60,17 @@ include Comparable.S with type t := t
 (** [name src] returns the name of the source if it exists. *)
 val name : t -> string option
 
-(** [length src] returns the length or size in bytes of [src]. 
-    Interpreted as a {{!type:Index.Byte_index.t} byte_index}, this is known 
+(** [length src] returns the length or size in bytes of [src].
+    Interpreted as a {{!type:Index.Byte_index.t} byte_index}, this is known
     as the end-of-source position.
 
-    @raise Invalid_argument if the file size is larger than an OCaml 63-bit 
-           integer. *)
+    For [`File] sources:
+    @raise Sys_error if the file cannot be opened (e.g., file does not exist,
+           permission denied, etc.), or if obtaining the file length fails
+           (e.g., from [lseek] failures, file system errors, etc.).
+    @raise Invalid_argument if the file size exceeds the maximum value that can
+           be represented by an OCaml 63-bit integer (Int.max_value).
+
+    For other source types ([`String], [`Reader]), this function does not raise
+    exceptions. *)
 val length : t -> int

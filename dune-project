@@ -30,6 +30,5 @@
   ppx_sexp_conv
   (dedent :with-test)
   (core :with-test)
-  (ppx_jane :with-test)
-  ))
-
+  (core_unix :with-test)
+  (ppx_jane :with-test)))

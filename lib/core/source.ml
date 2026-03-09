@@ -67,7 +67,9 @@ let name = function
 
 let length = function
   | `File filename ->
-    (try In_channel.(with_open_bin filename length) |> Int64.to_int with
+    let length = In_channel.(with_open_bin filename length) in
+    (match Int64.to_int length with
+     | Some length -> length
      | _ -> invalid_argf "file size is larger than an OCaml 63-bit integer")
   | `String { content; _ } -> String.length content
   | `Reader { Reader.length; _ } -> length
