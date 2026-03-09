@@ -67,8 +67,11 @@ let name = function
 
 let length = function
   | `File filename ->
-    (try In_channel.(with_open_bin filename length) |> Int64.to_int with
-     | _ -> invalid_argf "file size is larger than an OCaml 63-bit integer")
+    if String.equal filename ""
+    then invalid_argf "source has no associated file"
+    else (
+      try In_channel.(with_open_bin filename length) |> Int64.to_int with
+      | _ -> invalid_argf "file size is larger than an OCaml 63-bit integer")
   | `String { content; _ } -> String.length content
   | `Reader { Reader.length; _ } -> length
 ;;
