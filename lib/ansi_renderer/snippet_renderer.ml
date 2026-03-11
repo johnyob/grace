@@ -127,9 +127,10 @@ module Multi_context = struct
     (* Set gutter to `Top *)
     t.gutters.(gutter) <- Some (priority, `Top top_kind);
     (* Execute 'prologue' for multi-line label *)
-    prologue ();
+    let r = prologue () in
     (* Set gutter to `Vertical *)
-    t.gutters.(gutter) <- Some (priority, `Vertical)
+    t.gutters.(gutter) <- Some (priority, `Vertical);
+    r
   ;;
 
   let free t ~multi_id epilogue =
@@ -138,10 +139,11 @@ module Multi_context = struct
     (* Set gutter to `Bottom *)
     t.gutters.(gutter) <- Some (priority, `Bottom);
     (* Execute 'epilogue' for multi-line label *)
-    epilogue ();
+    let r = epilogue () in
     (* Remove bindings for multi-line label *)
     t.gutters.(gutter) <- None;
-    Hashtbl.remove t.bindings multi_id
+    Hashtbl.remove t.bindings multi_id;
+    r
   ;;
 end
 
@@ -264,8 +266,9 @@ let pwibox ~prefix ~nprefix pp ppf x =
 ;;
 
 (* line box *)
-let lbox ~config ~severity ~ctxt pp ppf x =
-  let prefix =
+
+let lbox ?(prologue = fun f -> f ()) ~config ~severity ~ctxt pp ppf x =
+  let make_prefix () =
     Fmt.str_like
       ppf
       "%*s %a %a"
@@ -276,7 +279,17 @@ let lbox ~config ~severity ~ctxt pp ppf x =
       (pp_multi_lines ~config ~severity)
       ctxt.multi_context
   in
-  pbox ~prefix pp ppf x
+  (* when printing a multi-line label, the first line may have a different prefix than the others *)
+  let prefix = prologue make_prefix in
+  let prefix2 = make_prefix () in
+  let s = Fmt.str_like ppf "%a" pp x in
+  let lines = split_lines_nonempty s in
+  let nlines = List.length lines in
+  List.iteri lines ~f:(fun i line ->
+    if i = 0
+    then Fmt.pf ppf "@[<h>%s%s@]" prefix line
+    else Fmt.pf ppf "@[<h>%s%s@]" prefix2 line;
+    if i <> nlines - 1 then Fmt.newline ppf ())
 ;;
 
 module Multi_line_label = struct
@@ -312,22 +325,23 @@ module Multi_line_label = struct
     | None -> pp ppf x
   ;;
 
-  let pp ~config ~severity ~ctxt ppf (multi_line_label : Multi_line_label.t) =
+  let with_multi ~ctxt (multi_line_label : Multi_line_label.t) f =
     match multi_line_label with
-    | Bottom { id; stop; priority; label } ->
-      Multi_context.free ctxt.multi_context ~multi_id:id
-      @@ fun () ->
-      pp_multi_lines ~config ~severity ppf ctxt.multi_context;
+    | Bottom { id; _ } -> Multi_context.free ctxt.multi_context ~multi_id:id f
+    | Top { id; priority; _ } ->
+      Multi_context.def ctxt.multi_context ~multi_id:id ~top_kind:`Non_unique ~priority f
+  ;;
+
+  let pp ~config ~severity ppf (multi_line_label : Multi_line_label.t) =
+    match multi_line_label with
+    | Bottom { stop; priority; label; _ } ->
       pp_bottom
         ~config
         ~severity
         ppf
         (* [-2] since we want a [-1] offset and [stop] is a column number (starting at 1) *)
         ((stop :> int) - 2, priority, label)
-    | Top { id; start; priority } ->
-      Multi_context.def ctxt.multi_context ~multi_id:id ~top_kind:`Non_unique ~priority
-      @@ fun () ->
-      pp_multi_lines ~config ~severity ppf ctxt.multi_context;
+    | Top { start; priority; _ } ->
       (* [-1] since [start] is a column number (starting at 1) *)
       pp_top ~config ~severity ppf ((start :> int) - 1, priority)
   ;;
@@ -481,20 +495,6 @@ module Inline_labels = struct
   ;;
 end
 
-let pp_multi_line_label ~config ~severity ~ctxt ppf multi_line_label =
-  (* equivalent to lbox but without multi_line, as that is handled internally *)
-  let prefix =
-    Fmt.str_like
-      ppf
-      "%*s %a "
-      ctxt.line_num_width
-      ""
-      (Chars.pp_source_border_left ~config)
-      ()
-  in
-  pbox ~prefix (Multi_line_label.pp ~config ~severity ~ctxt) ppf multi_line_label
-;;
-
 let pp_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
   (* Convert segments to inline labels *)
   let inline_labels = Inline_labels.of_segments line.segments in
@@ -535,7 +535,14 @@ let pp_line ~config ~severity ~ctxt ~lnum ppf (line : Line.t) =
   (* Print multi-line labels (if any) *)
   List.iter multi_line_labels ~f:(fun multi_line_label ->
     Fmt.newline ppf ();
-    pp_multi_line_label ~config ~severity ~ctxt ppf multi_line_label)
+    lbox
+      ~prologue:(Multi_line_label.with_multi ~ctxt multi_line_label)
+      ~config
+      ~severity
+      ~ctxt
+      (Multi_line_label.pp ~config ~severity)
+      ppf
+      multi_line_label)
 ;;
 
 let pp_locus ~source ppf (line_num, col_num) =
