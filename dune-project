@@ -22,6 +22,8 @@
   (ocaml
    (>= 4.14.0))
   dune
+  (yojson
+   (>= 2.1.0))
   (fmt
    (>= 0.8.7))
   iter

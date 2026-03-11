@@ -76,7 +76,7 @@ module Message = struct
   let to_string t =
     let buf = Buffer.create 512 in
     let ppf = Format.formatter_of_buffer buf in
-    Format.pp_set_geometry ppf ~max_indent:2 ~margin:Format.pp_infinity;
+    Format.pp_set_geometry ppf ~max_indent:2 ~margin:(Format.pp_infinity - 1);
     t ppf;
     Format.pp_print_flush ppf ();
     Buffer.contents buf

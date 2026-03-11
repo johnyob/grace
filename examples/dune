@@ -1,4 +1,4 @@
 (executable
  (name main)
  (modes exe)
- (libraries core dedent grace grace.ansi_renderer))
+ (libraries core dedent grace grace.ansi_renderer grace.json_conv))

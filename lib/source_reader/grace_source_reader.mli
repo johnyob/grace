@@ -95,6 +95,9 @@ module Line : sig
   (** [of_byte_index sd idx] returns the line containing [idx] in source [sd]. *)
   val of_byte_index : Source_descr.t -> Byte_index.t -> t
 
+  (** [column_offset line ~in_ idx] returns the column offset of [idx] in [line] in source [in_]. *)
+  val column_offset : t -> in_:Source_descr.t -> Byte_index.t -> int
+
   (** [start t] returns the {{!type:Grace.Byte_index.t} byte index} of the (inclusive) start position of the line. *)
   val start : t -> Byte_index.t
 

@@ -1,0 +1,6 @@
+(library
+ (name grace_json_conv)
+ (public_name grace.json_conv)
+ (libraries grace grace.std grace.source_reader fmt yojson)
+ (preprocess
+  (pps ppx_sexp_conv)))
