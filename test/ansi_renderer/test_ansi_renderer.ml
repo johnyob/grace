@@ -1027,5 +1027,47 @@ let%expect_test "label with multiple lines and ansi formatting" =
       5 |    baz
 
     unknown:1:1: error: err
+    |}];
+  compare
+    { diagnostic with
+      labels =
+        Diagnostic.Label.secondaryf
+          ~range:(range ~source 0 17)
+          "e3: encapsulates everything"
+        :: diagnostic.labels
+    };
+  [%expect {|
+    error: err
+        ┌─ unknown:1:1
+      1 │ ╭    foo
+        │ │    ^^^ e1:
+        │ │          new line of error1
+        │ │    unboxed new line of error 1
+      2 │ │
+      3 │ │ ╭  bar {
+      4 │ │ │  };
+        │ │ ╰────' e2:
+        │            new line of error 2
+        │ unboxed new line of error 2
+      5 │ │    baz
+        │ ╰──────' e3: encapsulates everything
+
+    unknown:1:1: error: err
+    error: err
+        --> unknown:1:1
+      1 | /    foo
+        | |    ^^^ e1:
+        | |          new line of error1
+        | |    unboxed new line of error 1
+      2 | |
+      3 | | /  bar {
+      4 | | |  };
+        | | \----' e2:
+        |            new line of error 2
+        | unboxed new line of error 2
+      5 | |    baz
+        | \------' e3: encapsulates everything
+
+    unknown:1:1: error: err
     |}]
 ;;
