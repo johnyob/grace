@@ -12,5 +12,6 @@ module List = List
 module Option = Option
 module Pretty_printer = Pretty_printer
 module String = String
+module Utf8 = Utf8
 include Grace_std0
 include Sexplib.Conv

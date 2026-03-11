@@ -293,6 +293,12 @@ module Line = struct
     Line_starts.find line_starts idx |> Line_index.of_int |> of_line_index sd
   ;;
 
+  let column_offset (line : t) ~in_ (idx : Byte_index.t) : int =
+    let content = slicei in_ (start line) idx in
+    let length = Utf8.length content in
+    length + 1
+  ;;
+
   let[@inline] slice t ~sd = slice sd t.range
 end
 

@@ -17,7 +17,7 @@ let fizz : Source.t =
     { name = Some "fizz.ml"
     ; content =
         {|
-let fizz n = 
+let fizz n =
   match n mod 5, n mod 3 with
   | 0, 0 -> `Fizz_buzz
   | 0, _ -> `Fizz
@@ -50,8 +50,15 @@ let diagnostic =
 ;;
 
 let () =
-  Format.printf
-    "%a@."
-    (Grace_ansi_renderer.pp_diagnostic ?config:None ~code_to_string)
-    diagnostic
+  match Sys.argv with
+  | [| _; "--json" |] ->
+    Format.printf
+      "%a@."
+      (Yojson.Safe.pretty_print ~std:true)
+      (Grace_json_conv.json_of_diagnostic ~code_to_string diagnostic)
+  | _ ->
+    Format.printf
+      "%a@."
+      (Grace_ansi_renderer.pp_diagnostic ?config:None ~code_to_string)
+      diagnostic
 ;;

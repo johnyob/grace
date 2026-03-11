@@ -8,20 +8,6 @@ let margin_length_of_string line_content =
   String.length line_content - String.length (String.lstrip line_content)
 ;;
 
-module Utf8 = struct
-  let length s =
-    let decoder = Uutf.decoder ~encoding:`UTF_8 (`String s) in
-    let rec loop acc =
-      match Uutf.decode decoder with
-      | `Uchar _ -> loop (acc + 1)
-      | `End -> acc
-      | `Malformed _ -> raise (Invalid_argument "invalid UTF-8")
-      | `Await -> assert false
-    in
-    loop 0
-  ;;
-end
-
 module type Number = Index
 
 module Int_number = struct
@@ -69,9 +55,7 @@ module Column_number = struct
   include Int_number
 
   let of_byte_index (idx : Byte_index.t) ~sd ~line =
-    let content = Source_reader.(slicei sd (Line.start line) idx) in
-    let length = Utf8.length content in
-    length + 1
+    Grace_source_reader.Line.column_offset ~in_:sd line idx
   ;;
 end
 
@@ -406,7 +390,7 @@ module Of_diagnostic = struct
       | `To -> lines
     in
     (* A contextual line is a line satisfying one of:
-       + withing +/-1 lines of lines containing labels 
+       + withing +/-1 lines of lines containing labels
        + between two other rendered lines ('gap' contextual lines) *)
     let add_multi_line_label_contextual_lines =
       List.concat_map_with_next_and_prev
