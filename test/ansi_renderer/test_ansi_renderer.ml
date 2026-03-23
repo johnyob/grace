@@ -1,5 +1,6 @@
 open! Core
 open! Grace
+open! Grace_std
 open Diagnostic
 
 let source name content : Source.t =
@@ -10,19 +11,61 @@ let range ~source start stop =
   Range.create ~source (Byte_index.of_int start) (Byte_index.of_int stop)
 ;;
 
-let pr_diagnostics ?(config = Grace_ansi_renderer.Config.default) diagnostics =
+(* This code is Copyright (c) 2017 The b0 programmers.
+  SPDX-License-Identifier: ISC *)
+let strip_ansi_escapes s =
+  let len = String.length s in
+  let b = Buffer.create len in
+  let max = len - 1 in
+  let flush start stop =
+    if start < 0 || start > max
+    then ()
+    else Stdlib.Buffer.add_substring b s start (stop - start + 1)
+  in
+  let rec skip_esc i =
+    if i > max
+    then loop i i
+    else (
+      let k = i + 1 in
+      if s.[i] = 'm' then loop k k else skip_esc k)
+  and loop start i =
+    match i > max with
+    | true ->
+      if Buffer.length b = len
+      then s
+      else (
+        flush start max;
+        Buffer.contents b)
+    | false ->
+      (match s.[i] with
+       | '\x1B' ->
+         flush start (i - 1);
+         skip_esc (i + 1)
+       | _ -> loop start (i + 1))
+  in
+  loop 0 0
+;;
+
+let pr_diagnostics
+      ?(config = Grace_ansi_renderer.Config.default)
+      ?(ansi = false)
+      diagnostics
+  =
   let open Grace_ansi_renderer in
-  (* Disable colors for tests (since expect tests don't support ANSI colors) *)
-  let config = { config with use_ansi = Some false } in
-  Fmt.(
-    list
-      ~sep:(fun ppf () -> pf ppf "@.@.@.")
-      (fun ppf diagnostic ->
-         pp_diagnostic ~config ppf diagnostic;
-         pf ppf "@.@.";
-         pp_compact_diagnostic ~config ppf diagnostic))
-    Fmt.stdout
-    diagnostics
+  let config = { config with use_ansi = Some ansi } in
+  let output =
+    Fmt.(str_like stdout)
+      "%a"
+      Fmt.(
+        list
+          ~sep:(fun ppf () -> pf ppf "@.@.@.")
+          (fun ppf diagnostic ->
+             pp_diagnostic ~config ppf diagnostic;
+             pf ppf "@.@.";
+             pp_compact_diagnostic ~config ppf diagnostic))
+      diagnostics
+  in
+  print_endline (strip_ansi_escapes output)
 ;;
 
 let pr_bad_diagnostics ?(config = Grace_ansi_renderer.Config.default) diagnostics =
@@ -85,7 +128,7 @@ let%expect_test "same_line" =
   let source =
     source
       "one_line.rs"
-      {|  
+      {|
       > fn main() {
       >     let mut v = vec![Some("foo"), Some("bar")];
       >     v.push(v.pop().unwrap());
@@ -154,7 +197,7 @@ let%expect_test "overlapping" =
       "typeck_type_placeholder_item.rs"
       {|
       > fn fn_test1() -> _ { 5 }
-      > fn fn_test2(x: i32) -> (_, _) { (x, x) }  
+      > fn fn_test2(x: i32) -> (_, _) { (x, x) }
       |}
   in
   let s3 =
@@ -651,8 +694,8 @@ let%expect_test "multi-line empty messages" =
     source
       "rigid_variable_escape.ml"
       {|
-      > let escape = fun f -> 
-      >   fun (type a) -> 
+      > let escape = fun f ->
+      >   fun (type a) ->
       >     (f : a -> a)
       > ;;
       |}
@@ -920,5 +963,67 @@ let%expect_test "num_contextual_lines = 2 and enable_inline_contextual_lines = t
       4 │  line 4
 
     inline.ml:2:1: error: Testing inline labels without contextual lines
+|}]
+;;
+
+let%expect_test "label with multiple lines and ansi formatting" =
+  (* Bug #71: https://github.com/johnyob/grace/issues/71*)
+  let compare diagnostic =
+    pr_diagnostics ~ansi:true [ diagnostic ];
+    (* check consistency with non-unicode, non-ansi *)
+    pr_diagnostics
+      ~ansi:false
+      ~config:Grace_ansi_renderer.Config.{ default with chars = Chars.ascii }
+      [ diagnostic ]
+  in
+  let content = "foo\n\nbar {\n};\nbaz" in
+  let source : Source.t = `String { name = None; content } in
+  let diagnostic =
+    Diagnostic.(
+      createf
+        ~labels:
+          [ Label.primaryf
+              ~range:(range ~source 0 3)
+              "@[<v2>e1:@ new line of error1@]@ unboxed new line of error 1"
+          ; Label.secondaryf
+              ~range:(range ~source 5 14)
+              "@[<v2>e2:@ new line of error 2@]@ unboxed new line of error 2"
+          ]
+        Error
+        "err")
+  in
+  compare diagnostic;
+  [%expect
+    {|
+    error: err
+        ┌─ unknown:1:1
+      1 │    foo
+        │    ^^^ e1:
+        │          new line of error1
+        │    unboxed new line of error 1
+      2 │
+      3 │ ╭  bar {
+      4 │ │  };
+        │ ╰────' e2:
+                                         new line of error 2
+                                       unboxed new line of error 2
+      5 │    baz
+
+    unknown:1:1: error: err
+    error: err
+        --> unknown:1:1
+      1 |    foo
+        |    ^^^ e1:
+        |          new line of error1
+        |    unboxed new line of error 1
+      2 |
+      3 | /  bar {
+      4 | |  };
+        | \----' e2:
+          new line of error 2
+        unboxed new line of error 2
+      5 |    baz
+
+    unknown:1:1: error: err
     |}]
 ;;
