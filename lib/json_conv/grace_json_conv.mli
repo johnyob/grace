@@ -23,4 +23,4 @@
 val json_of_diagnostic
   :  ?code_to_string:('code -> string)
   -> 'code Grace.Diagnostic.t
-  -> Yojson.Safe.t
+  -> Yojson.Basic.t

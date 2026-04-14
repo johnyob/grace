@@ -12,7 +12,7 @@ let range ~source start stop =
 
 let pr_diagnostics diagnostics =
   let jsons = List.map diagnostics ~f:Grace_json_conv.json_of_diagnostic in
-  Yojson.Safe.pretty_print Fmt.stdout (`List jsons)
+  Yojson.Basic.pretty_print Fmt.stdout (`List jsons)
 ;;
 
 let pr_bad_diagnostics diagnostics =
@@ -21,7 +21,7 @@ let pr_bad_diagnostics diagnostics =
       ~sep:(fun ppf () -> pf ppf "@.@.")
       (fun ppf diagnostic ->
          try
-           Yojson.Safe.pretty_print ppf (Grace_json_conv.json_of_diagnostic diagnostic)
+           Yojson.Basic.pretty_print ppf (Grace_json_conv.json_of_diagnostic diagnostic)
          with
          | exn -> Fmt.pf ppf "Raised: %s" (Exn.to_string exn)))
     Fmt.stdout
