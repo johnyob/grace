@@ -54,7 +54,7 @@ let () =
   | [| _; "--json" |] ->
     Format.printf
       "%a@."
-      (Yojson.Safe.pretty_print ~std:true)
+      (Yojson.Basic.pretty_print ~std:true)
       (Grace_json_conv.json_of_diagnostic ~code_to_string diagnostic)
   | _ ->
     Format.printf

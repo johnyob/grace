@@ -10,7 +10,7 @@ let json_of_byte_index ~in_ (idx : Byte_index.t) =
   `Assoc [ "line", line_json; "column", column_json ]
 ;;
 
-let json_of_range (r : Range.t) : Yojson.Safe.t =
+let json_of_range (r : Range.t) : Yojson.Basic.t =
   let sd = Grace_source_reader.open_source (Range.source r) in
   let vals =
     [ "start", json_of_byte_index ~in_:sd (Range.start r)
@@ -22,11 +22,11 @@ let json_of_range (r : Range.t) : Yojson.Safe.t =
   | None -> `Assoc vals
 ;;
 
-let json_of_message (message : Diagnostic.Message.t) : Yojson.Safe.t =
+let json_of_message (message : Diagnostic.Message.t) : Yojson.Basic.t =
   `String (Diagnostic.Message.to_string message)
 ;;
 
-let json_of_label ({ range; priority; message } : Diagnostic.Label.t) : Yojson.Safe.t =
+let json_of_label ({ range; priority; message } : Diagnostic.Label.t) : Yojson.Basic.t =
   `Assoc
     Diagnostic.
       [ "range", json_of_range range
@@ -38,7 +38,7 @@ let json_of_label ({ range; priority; message } : Diagnostic.Label.t) : Yojson.S
 let json_of_diagnostic
       ?code_to_string
       ({ severity; message; notes; labels; code } : 'a Diagnostic.t)
-  : Yojson.Safe.t
+  : Yojson.Basic.t
   =
   Grace_source_reader.with_reader
   @@ fun () ->
