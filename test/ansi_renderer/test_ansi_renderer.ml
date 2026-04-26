@@ -1008,7 +1008,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
       4 │ │  };
         │ ╰────' e2:
         │          new line of error 2
-        │    unboxed new line of error 2
+        │        unboxed new line of error 2
       5 │    baz
 
     unknown:1:1: error: err
@@ -1023,7 +1023,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
       4 | |  };
         | \----' e2:
         |          new line of error 2
-        |    unboxed new line of error 2
+        |        unboxed new line of error 2
       5 |    baz
 
     unknown:1:1: error: err
@@ -1049,7 +1049,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
       4 │ │ │  };
         │ │ ╰────' e2:
         │ │          new line of error 2
-        │ │    unboxed new line of error 2
+        │ │        unboxed new line of error 2
       5 │ │    baz
         │ ╰──────' e3: encapsulates everything
 
@@ -1065,7 +1065,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
       4 | | |  };
         | | \----' e2:
         | |          new line of error 2
-        | |    unboxed new line of error 2
+        | |        unboxed new line of error 2
       5 | |    baz
         | \------' e3: encapsulates everything
 
