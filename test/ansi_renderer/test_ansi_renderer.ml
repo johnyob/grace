@@ -473,7 +473,8 @@ let%expect_test "multiline_overlapping" =
         ┌─ file.rs:4:34
       1 │ ╭            match line_index.compare(self.last_line_index()) {
       2 │ │                Ordering::Less => Ok(self.line_starts()[line_index.to_usize()]),
-        │ │                                  --------------------------------------------- this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
+        │ │                                  ---------------------------------------------
+        │ │     this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
       3 │ │                Ordering::Equal => Ok(self.source_span().end()),
         │ │                                   ---------------------------- this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
       4 │ │                Ordering::Greater => LineIndexOutOfBoundsError {
@@ -746,7 +747,8 @@ let%expect_test "multi-label on large file" =
     error: Some dramatic error
         ┌─ inputs/snippet.ml:542:21
     148 │           ~compare:(Comparable.pair Diagnostic.Priority.compare Byte_index.compare)
-        │                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Error is happening here
+        │                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        │   Error is happening here
         ·
     542 │          let locus = locus_of_labels ~sd labels in
         │                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ Bananad from here
@@ -1002,7 +1004,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
       1 │    foo
         │    ^^^ e1:
         │          new line of error1
-        │    unboxed new line of error 1
+        │       unboxed new line of error 1
       2 │
       3 │ ╭  bar {
       4 │ │  };
@@ -1017,7 +1019,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
       1 |    foo
         |    ^^^ e1:
         |          new line of error1
-        |    unboxed new line of error 1
+        |       unboxed new line of error 1
       2 |
       3 | /  bar {
       4 | |  };
@@ -1043,7 +1045,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
       1 │ ╭    foo
         │ │    ^^^ e1:
         │ │          new line of error1
-        │ │    unboxed new line of error 1
+        │ │       unboxed new line of error 1
       2 │ │
       3 │ │ ╭  bar {
       4 │ │ │  };
@@ -1059,7 +1061,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
       1 | /    foo
         | |    ^^^ e1:
         | |          new line of error1
-        | |    unboxed new line of error 1
+        | |       unboxed new line of error 1
       2 | |
       3 | | /  bar {
       4 | | |  };

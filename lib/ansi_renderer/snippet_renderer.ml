@@ -442,11 +442,13 @@ module Inline_labels = struct
   let pp ~config ~severity ppf t =
     (* Print carets *)
     pp_carets ~config ~severity ppf t;
+    Format.pp_open_vbox ppf 0;
     (* Print trailing label *)
     pp_trailing_label ~config ~severity ppf t.trailing_segment;
     (* If non-empty, print the hanging segments *)
     if not (List.is_empty t.hanging_segments)
-    then Fmt.pf ppf "@.%a" (pp_hanging_segments ~config ~severity) t.hanging_segments
+    then Fmt.pf ppf "@.%a" (pp_hanging_segments ~config ~severity) t.hanging_segments;
+    Format.pp_close_box ppf ()
   ;;
 
   let as_trailing_segment { priority; offset; length; messages } : trailing_segment option
