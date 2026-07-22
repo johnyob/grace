@@ -258,8 +258,17 @@ let split_lines_nonempty s = if String.is_empty s then [ "" ] else String.split_
 (* Grace defines a series of custom boxes that enforce prefixes at newlines. *)
 
 (* prefixed box *)
-let pbox ~prefix pp ppf x =
-  let s = Fmt.str_like ppf "%a" pp x in
+let pbox ?(margin = 78) ~prefix pp ppf x =
+  let s =
+    let buf = Buffer.create 80 in
+    let ppf = Fmt.with_buffer ~like:ppf buf in
+    Format.pp_set_geometry ppf ~max_indent:(margin - 1) ~margin;
+    Fmt.pf ppf "%a" pp x;
+    Format.pp_print_flush ppf ();
+    let s = Buffer.contents buf in
+    Buffer.reset buf;
+    s
+  in
   match split_lines_nonempty s with
   | [] -> assert false
   | first_line :: rest ->
@@ -277,7 +286,12 @@ let prefixed_vbox ~prefix ~indent pp ppf x =
 
 (* line box *)
 let lbox ~config ~severity ~ctxt pp ppf x =
-  pbox ~prefix:(pp_line_prefix ~config ~severity ~ctxt) pp ppf x
+  pbox
+    ~margin:(Format.pp_infinity - 1)
+    ~prefix:(pp_line_prefix ~config ~severity ~ctxt)
+    pp
+    ppf
+    x
 ;;
 
 module Multi_line_label = struct
