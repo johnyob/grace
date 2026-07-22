@@ -1191,3 +1191,34 @@ let%expect_test "single-line labels with vbox breaks - multiple on same line" =
     unknown:1:5: error: test multiple labels alignment
     |}]
 ;;
+
+let%expect_test "error at the end of a long line" =
+  let content =
+    "fn main() {\n\
+    \  println!(\"What happens when I have an error at a really high column? Let's find \
+     out by trying to print something that doesn't exist {}\", missing);\n\
+     }"
+  in
+  let source : Source.t = `String { name = Some "foo.rs"; content } in
+  let diagnostic =
+    Diagnostic.(
+      createf
+        ~labels:
+          [ Label.primaryf
+              ~range:(range ~source 151 158)
+              "@[not found in this scope.@ did you mean 'missingo'?@]"
+          ]
+        Error
+        "cannot find value `missing` in this scope")
+  in
+  pr_diagnostics [ diagnostic ];
+  [%expect
+ {|
+    error: cannot find value `missing` in this scope
+        ┌─ foo.rs:2:140
+      2 │    println!("What happens when I have an error at a really high column? Let's find out by trying to print something that doesn't exist {}", missing);
+        │                                                                                                                                             ^^^^^^^ not found in this scope. did you mean 'missingo'?
+
+    foo.rs:2:140: error: cannot find value `missing` in this scope
+    |}] [@ocamlformat "disable"]
+;;
