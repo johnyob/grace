@@ -18,6 +18,21 @@ module Fmt = struct
 
   let sps n ppf x = repeat ~width:n sp ppf x
   let newline ppf () = Fmt.pf ppf "@."
+
+  (** Shadow [Fmt.str_like] with a version that allows the caller to specify
+      the margin for the produced string *)
+  let str_like ?(margin = 78) like fmt =
+    let buf = Buffer.create 64 in
+    let bppf = Fmt.with_buffer ~like buf in
+    Format.pp_set_geometry bppf ~max_indent:(margin - 1) ~margin;
+    let flush ppf =
+      Format.pp_print_flush ppf ();
+      let s = Buffer.contents buf in
+      Buffer.reset buf;
+      s
+    in
+    Format.kfprintf flush bppf fmt
+  ;;
 end
 
 module List = struct
