@@ -371,10 +371,8 @@ module Inline_labels = struct
   ;;
 
   let pp_trailing_label ~config ~severity =
-    Fmt.(
-      option ~none:nop
-      @@ fun ppf ({ message; priority; _ } : trailing_segment) ->
-      Fmt.pf ppf " %a" (pp_message ~config ~severity ~priority) message)
+    fun ppf ({ message; priority; _ } : trailing_segment) ->
+    Fmt.pf ppf " %a" (pp_message ~config ~severity ~priority) message
   ;;
 
   let pp_carets ~config ~severity ppf { hanging_segments; trailing_segment } =
@@ -402,18 +400,10 @@ module Inline_labels = struct
       pr_segment (offset, length, priority))
   ;;
 
-  let pp_hanging_segments ~config ~severity ppf segments =
-    let str_pointer_left priority =
-      Fmt.str_like ppf "%a" (Chars.pp_pointer_left ~config ~severity ~priority) ()
-    in
-    let pp_messages ~priority =
-      let open Fmt in
-      vbox @@ list ~sep:newline @@ hbox @@ pp_message ~config ~severity ~priority
-    in
-    let rec loop cursor pointers = function
-      | [] ->
-        (* Print the initial hanging pointers *)
-        Fmt.pf ppf "%s" pointers
+  let fold_hanging_segments_with_cursor_and_pointers ~pointer_left ~nil ~cons segments =
+    let rec loop cursor pointers segments =
+      match segments with
+      | [] -> nil ~cursor ~pointers
       | { offset; length; priority = _; messages = [] } :: segments ->
         assert (Column_number.(cursor <= offset));
         (* In the case of an empty hanging segment, simply print the spaces and move the cursor *)
@@ -427,23 +417,114 @@ module Inline_labels = struct
         let pointers = pointers ^ String.make Column_number.(diff offset cursor) ' ' in
         (* Print the pointers & messages above this message adding a pointer for this set of messages
            Invariant: offset + length >= offset + 1 <=> length > 0 *)
-        loop Column_number.(add offset 1) (pointers ^ str_pointer_left priority) segments;
+        let result =
+          loop Column_number.(add offset 1) (pointers ^ pointer_left priority) segments
+        in
+        cons ~cursor ~pointers (priority, messages) result
+    in
+    loop Column_number.initial "" segments
+  ;;
+
+  let str_pointer_left ~config ~severity ppf priority =
+    Fmt.str_like ppf "%a" (Chars.pp_pointer_left ~config ~severity ~priority) ()
+  ;;
+
+  let hanging_segments_pointers ~config ~severity ppf segments =
+    fold_hanging_segments_with_cursor_and_pointers
+      ~pointer_left:(str_pointer_left ~config ~severity ppf)
+      ~nil:(fun ~cursor ~pointers -> cursor, pointers)
+      ~cons:(fun ~cursor:_ ~pointers:_ _msg tl_cursor_and_pointers ->
+        tl_cursor_and_pointers)
+      segments
+  ;;
+
+  let pp_hanging_segments ~config ~severity ppf segments =
+    let pp_messages ~priority =
+      let open Fmt in
+      vbox @@ list ~sep:newline @@ hbox @@ pp_message ~config ~severity ~priority
+    in
+    fold_hanging_segments_with_cursor_and_pointers
+      ~pointer_left:(str_pointer_left ~config ~severity ppf)
+      ~nil:(fun ~cursor:_ ~pointers -> Fmt.pf ppf "%s" pointers)
+      ~cons:(fun ~cursor:_ ~pointers (priority, messages) _tl ->
         Fmt.newline ppf ();
         (* Print the messages *)
         prefixed_pbox
           ~prefix:Fmt.(const string pointers)
           (pp_messages ~priority)
           ppf
-          messages
-    in
-    loop Column_number.initial "" segments
+          messages)
+      segments
   ;;
 
   let pp ~config ~severity ppf t =
     (* Print carets *)
     pp_carets ~config ~severity ppf t;
     (* Print trailing label *)
-    pp_trailing_label ~config ~severity ppf t.trailing_segment;
+    (match t.trailing_segment with
+     | None -> ()
+     | Some trailing_segment ->
+       (* If the trailing label has line breaks, we need to compute the 
+          hanging segment pointers along with a space prefix up until the 
+          trailing label.
+       *)
+       let str_prefix =
+         lazy
+           ((* The [hanging_pointers_last_cursor] here is the end cursor of computing the 
+               hanging pointers. *)
+            let hanging_pointers_last_cursor, hanging_pointers =
+              hanging_segments_pointers ~config ~severity ppf t.hanging_segments
+            in
+            (* Consider:
+                error: test multiple labels alignment
+                    ┌─ unknown:1:5
+                  1 │      foo(bar, baz
+                    │      ^^^ ---  --- arg2:
+                    │      │   │~~~~~~~~   also wrong
+                    │      │   │~~~~~~~~ check here
+                    │      │   │
+                    │      │   arg1:
+                    │      │     wrong type
+                    │      │    see docs
+                    │      fn name:
+                    │        should be different
+                    │       extra note
+
+
+                               ^
+                               This is where the end of [hanging_segments_pointers] would be (32)
+                                ^
+                                This is the column position of [hanging_pointers_last_cursor] (33)
+                                    ^
+                                    This is the start of the [trailing_segment] (37)
+                                        ^  
+                                        This is the end of the trailing segment + 1 (for the space) (41)
+
+                                ~~~~~~~~
+                                ^^^^^^^^
+                                This is the spacing we need to add in the prefix (8)
+
+               To compute the spaces we need:
+
+                  trailing_segment.offset + trailing_segment.length + 1 - hanging_pointers_last_cursor 
+                  = 41 - 33 
+                  = 8
+            *)
+            let trailing_sps =
+              String.make
+                Column_number.(
+                  diff
+                    (add trailing_segment.offset (trailing_segment.length + 1))
+                    hanging_pointers_last_cursor)
+                ' '
+            in
+            hanging_pointers ^ trailing_sps)
+       in
+       pbox
+         ~prefix:(fun ppf () -> Fmt.pf ppf "%s" (Lazy.force str_prefix))
+         (pp_trailing_label ~config ~severity)
+         ppf
+         trailing_segment);
     (* If non-empty, print the hanging segments *)
     if not (List.is_empty t.hanging_segments)
     then Fmt.pf ppf "@.%a" (pp_hanging_segments ~config ~severity) t.hanging_segments

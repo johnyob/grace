@@ -473,7 +473,8 @@ let%expect_test "multiline_overlapping" =
         ┌─ file.rs:4:34
       1 │ ╭            match line_index.compare(self.last_line_index()) {
       2 │ │                Ordering::Less => Ok(self.line_starts()[line_index.to_usize()]),
-        │ │                                  --------------------------------------------- this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
+        │ │                                  ---------------------------------------------
+        │ │     this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
       3 │ │                Ordering::Equal => Ok(self.source_span().end()),
         │ │                                   ---------------------------- this is found to be of type `Result<ByteIndex, LineIndexOutOfBoundsError>`
       4 │ │                Ordering::Greater => LineIndexOutOfBoundsError {
@@ -746,7 +747,8 @@ let%expect_test "multi-label on large file" =
     error: Some dramatic error
         ┌─ inputs/snippet.ml:542:21
     148 │           ~compare:(Comparable.pair Diagnostic.Priority.compare Byte_index.compare)
-        │                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Error is happening here
+        │                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        │   Error is happening here
         ·
     542 │          let locus = locus_of_labels ~sd labels in
         │                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ Bananad from here
@@ -1001,8 +1003,8 @@ let%expect_test "label with multiple lines and ansi formatting" =
         ┌─ unknown:1:1
       1 │    foo
         │    ^^^ e1:
-        │          new line of error1
-        │    unboxed new line of error 1
+        │           new line of error1
+        │        unboxed new line of error 1
       2 │
       3 │ ╭  bar {
       4 │ │  };
@@ -1016,8 +1018,8 @@ let%expect_test "label with multiple lines and ansi formatting" =
         --> unknown:1:1
       1 |    foo
         |    ^^^ e1:
-        |          new line of error1
-        |    unboxed new line of error 1
+        |           new line of error1
+        |        unboxed new line of error 1
       2 |
       3 | /  bar {
       4 | |  };
@@ -1042,8 +1044,8 @@ let%expect_test "label with multiple lines and ansi formatting" =
         ┌─ unknown:1:1
       1 │ ╭    foo
         │ │    ^^^ e1:
-        │ │          new line of error1
-        │ │    unboxed new line of error 1
+        │ │           new line of error1
+        │ │        unboxed new line of error 1
       2 │ │
       3 │ │ ╭  bar {
       4 │ │ │  };
@@ -1058,8 +1060,8 @@ let%expect_test "label with multiple lines and ansi formatting" =
         --> unknown:1:1
       1 | /    foo
         | |    ^^^ e1:
-        | |          new line of error1
-        | |    unboxed new line of error 1
+        | |           new line of error1
+        | |        unboxed new line of error 1
       2 | |
       3 | | /  bar {
       4 | | |  };
@@ -1070,5 +1072,111 @@ let%expect_test "label with multiple lines and ansi formatting" =
         | \------' e3: encapsulates everything
 
     unknown:1:1: error: err
+    |}]
+;;
+
+let%expect_test "single-line labels with vbox breaks - trailing label" =
+  (* Test trailing labels (single-line, last label, no overlap) with vbox message formatting *)
+  let content = "let x = foo + bar + baz" in
+  let source : Source.t = `String { name = None; content } in
+  let diagnostic =
+    Diagnostic.(
+      createf
+        ~labels:
+          [ Label.primaryf
+              ~range:(range ~source 8 21)
+              "@[<v2>trailing label:@ continuation line 1@]@ unboxed continuation"
+          ]
+        Error
+        "test trailing label indentation")
+  in
+  pr_diagnostics ~ansi:true [ diagnostic ];
+  [%expect
+    {|
+    error: test trailing label indentation
+        ┌─ unknown:1:9
+      1 │  let x = foo + bar + baz
+        │          ^^^^^^^^^^^^^ trailing label:
+        │                           continuation line 1
+        │                        unboxed continuation
+
+    unknown:1:9: error: test trailing label indentation
+    |}]
+;;
+
+let%expect_test "single-line labels with vbox breaks - hanging label" =
+  (* Test hanging labels (single-line, has overlap) with vbox message formatting *)
+  let content = "let result = foo + bar" in
+  let source : Source.t = `String { name = None; content } in
+  let diagnostic =
+    Diagnostic.(
+      createf
+        ~labels:
+          [ Label.primaryf
+              ~range:(range ~source 13 16)
+              "@[<v2>label1:@ continuation 1@]@ unboxed 1"
+          ; Label.secondaryf
+              ~range:(range ~source 19 22)
+              "@[<v2>label2:@ continuation 2@]@ unboxed 2"
+          ]
+        Error
+        "test hanging label indentation")
+  in
+  pr_diagnostics ~ansi:true [ diagnostic ];
+  [%expect
+    {|
+    error: test hanging label indentation
+        ┌─ unknown:1:14
+      1 │  let result = foo + bar
+        │               ^^^   --- label2:
+        │               │            continuation 2
+        │               │         unboxed 2
+        │               │
+        │               label1:
+        │                 continuation 1 unboxed 1
+
+    unknown:1:14: error: test hanging label indentation
+    |}]
+;;
+
+let%expect_test "single-line labels with vbox breaks - multiple on same line" =
+  (* Test multiple single-line labels with different positions on same line *)
+  let content = "    foo(bar, baz)" in
+  let source : Source.t = `String { name = None; content } in
+  let diagnostic =
+    Diagnostic.(
+      createf
+        ~labels:
+          [ Label.primaryf
+              ~range:(range ~source 4 7)
+              "@[<v2>fn name:@ should be different@]@. extra note"
+          ; Label.secondaryf
+              ~range:(range ~source 8 11)
+              "@[<v2>arg1:@ wrong type@]@. see docs"
+          ; Label.secondaryf
+              ~range:(range ~source 13 16)
+              "@[<v2>arg2:@ also wrong@]@. check here"
+          ]
+        Error
+        "test multiple labels alignment")
+  in
+  pr_diagnostics ~ansi:true [ diagnostic ];
+  [%expect
+    {|
+    error: test multiple labels alignment
+        ┌─ unknown:1:5
+      1 │      foo(bar, baz
+        │      ^^^ ---  --- arg2:
+        │      │   │           also wrong
+        │      │   │         check here
+        │      │   │
+        │      │   arg1:
+        │      │     wrong type
+        │      │    see docs
+        │      fn name:
+        │        should be different
+        │       extra note
+
+    unknown:1:5: error: test multiple labels alignment
     |}]
 ;;
