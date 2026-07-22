@@ -258,8 +258,17 @@ let split_lines_nonempty s = if String.is_empty s then [ "" ] else String.split_
 (* Grace defines a series of custom boxes that enforce prefixes at newlines. *)
 
 (* prefixed box *)
-let pbox ?margin ~prefix pp ppf x =
-  let s = Fmt.str_like ?margin ppf "%a" pp x in
+let pbox ?(margin = 78) ~prefix pp ppf x =
+  let s =
+    let margin =
+      if margin = Format.pp_infinity - 1
+      then margin
+      else (
+        let prefix_length = Utf8.length (Fmt.str "%a" prefix ()) in
+        Int.max 25 (margin - prefix_length))
+    in
+    Fmt.str_like ~margin ppf "%a" pp x
+  in
   match split_lines_nonempty s with
   | [] -> assert false
   | first_line :: rest ->

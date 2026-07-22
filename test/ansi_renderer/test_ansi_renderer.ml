@@ -1217,7 +1217,8 @@ let%expect_test "error at the end of a long line" =
     error: cannot find value `missing` in this scope
         ┌─ foo.rs:2:140
       2 │    println!("What happens when I have an error at a really high column? Let's find out by trying to print something that doesn't exist {}", missing);
-        │                                                                                                                                             ^^^^^^^ not found in this scope. did you mean 'missingo'?
+        │                                                                                                                                             ^^^^^^^ not found in this scope.
+        │                                                                                                                                                     did you mean 'missingo'?
 
     foo.rs:2:140: error: cannot find value `missing` in this scope
     |}] [@ocamlformat "disable"]
