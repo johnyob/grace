@@ -375,9 +375,13 @@ module Inline_labels = struct
     List.is_empty hanging_segments && Option.is_none trailing_segment
   ;;
 
-  let pp_trailing_label ~config ~severity =
-    fun ppf ({ message; priority; _ } : trailing_segment) ->
-    Fmt.pf ppf " %a" (pp_message ~config ~severity ~priority) message
+  let pp_trailing_label
+        ~config
+        ~severity
+        ppf
+        ({ message; priority; _ } : trailing_segment)
+    =
+    pp_message ~config ~severity ~priority ppf message
   ;;
 
   let pp_carets ~config ~severity ppf { hanging_segments; trailing_segment } =
@@ -525,6 +529,7 @@ module Inline_labels = struct
             in
             hanging_pointers ^ trailing_sps)
        in
+       Fmt.sp ppf ();
        pbox
          ~prefix:(fun ppf () -> Fmt.pf ppf "%s" (Lazy.force str_prefix))
          (pp_trailing_label ~config ~severity)

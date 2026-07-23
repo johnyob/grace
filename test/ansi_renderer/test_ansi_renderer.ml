@@ -1001,7 +1001,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
         ┌─ unknown:1:1
       1 │    foo
         │    ^^^ e1:
-        │           new line of error1
+        │          new line of error1
         │        unboxed new line of error 1
       2 │
       3 │ ╭  bar {
@@ -1016,7 +1016,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
         --> unknown:1:1
       1 |    foo
         |    ^^^ e1:
-        |           new line of error1
+        |          new line of error1
         |        unboxed new line of error 1
       2 |
       3 | /  bar {
@@ -1042,7 +1042,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
         ┌─ unknown:1:1
       1 │ ╭    foo
         │ │    ^^^ e1:
-        │ │           new line of error1
+        │ │          new line of error1
         │ │        unboxed new line of error 1
       2 │ │
       3 │ │ ╭  bar {
@@ -1058,7 +1058,7 @@ let%expect_test "label with multiple lines and ansi formatting" =
         --> unknown:1:1
       1 | /    foo
         | |    ^^^ e1:
-        | |           new line of error1
+        | |          new line of error1
         | |        unboxed new line of error 1
       2 | |
       3 | | /  bar {
@@ -1095,7 +1095,7 @@ let%expect_test "single-line labels with vbox breaks - trailing label" =
         ┌─ unknown:1:9
       1 │  let x = foo + bar + baz
         │          ^^^^^^^^^^^^^ trailing label:
-        │                           continuation line 1
+        │                          continuation line 1
         │                        unboxed continuation
 
     unknown:1:9: error: test trailing label indentation
@@ -1127,7 +1127,7 @@ let%expect_test "single-line labels with vbox breaks - hanging label" =
         ┌─ unknown:1:14
       1 │  let result = foo + bar
         │               ^^^   --- label2:
-        │               │            continuation 2
+        │               │           continuation 2
         │               │         unboxed 2
         │               │
         │               label1:
@@ -1165,7 +1165,7 @@ let%expect_test "single-line labels with vbox breaks - multiple on same line" =
         ┌─ unknown:1:5
       1 │      foo(bar, baz
         │      ^^^ ---  --- arg2:
-        │      │   │           also wrong
+        │      │   │          also wrong
         │      │   │         check here
         │      │   │
         │      │   arg1:
