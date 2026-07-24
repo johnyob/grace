@@ -3,5 +3,4 @@
  (public_name grace.std)
  (libraries
   sexplib
-  uutf
   (re_export fmt)))
