@@ -648,13 +648,73 @@ let%expect_test "unicode spans" =
   pr_bad_diagnostics diagnostics;
   [%expect
     {|
-    Raised: (Invalid_argument "invalid UTF-8")
+    {
+      "severity": "error",
+      "message": "Cow may not jump during new moon.",
+      "notes": [],
+      "labels": [
+        {
+          "range": {
+            "source": "moon_jump.rs",
+            "start": { "line": 1, "column": 2 },
+            "end": { "line": 1, "column": 2 }
+          },
+          "priority": "primary",
+          "message": "Invalid jump"
+        }
+      ]
+    }
 
-    Raised: (Invalid_argument "invalid UTF-8")
+    {
+      "severity": "note",
+      "message": "Invalid unicode range",
+      "notes": [],
+      "labels": [
+        {
+          "range": {
+            "source": "moon_jump.rs",
+            "start": { "line": 1, "column": 2 },
+            "end": { "line": 1, "column": 2 }
+          },
+          "priority": "secondary",
+          "message": "Cow range does not start at boundary."
+        }
+      ]
+    }
 
-    Raised: (Invalid_argument "invalid UTF-8")
+    {
+      "severity": "note",
+      "message": "Invalid unicode range",
+      "notes": [],
+      "labels": [
+        {
+          "range": {
+            "source": "moon_jump.rs",
+            "start": { "line": 1, "column": 3 },
+            "end": { "line": 1, "column": 4 }
+          },
+          "priority": "secondary",
+          "message": "Cow range does not end at boundary"
+        }
+      ]
+    }
 
-    Raised: (Invalid_argument "invalid UTF-8")
+    {
+      "severity": "note",
+      "message": "Invalid unicode range",
+      "notes": [],
+      "labels": [
+        {
+          "range": {
+            "source": "moon_jump.rs",
+            "start": { "line": 1, "column": 2 },
+            "end": { "line": 1, "column": 4 }
+          },
+          "priority": "secondary",
+          "message": "Cow does not start or end at boundary."
+        }
+      ]
+    }
     |}]
 ;;
 

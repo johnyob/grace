@@ -605,13 +605,26 @@ let%expect_test "unicode spans" =
   pr_bad_diagnostics diagnostics;
   [%expect
     {|
-    Raised: (Invalid_argument "invalid UTF-8")
+    error: Cow may not jump during new moon.
+        ┌─ moon_jump.rs:1:2
+      1 │  🐄🌑🐄🌒🐄🌓🐄🌔🐄🌕🐄🌖🐄🌗🐄🌘🐄
+        │   ^^ Invalid jump
 
-    Raised: (Invalid_argument "invalid UTF-8")
+    note: Invalid unicode range
+        ┌─ moon_jump.rs:1:2
+      1 │  🐄🌑🐄🌒🐄🌓🐄🌔🐄🌕🐄🌖🐄🌗🐄🌘🐄
+        │   --- Cow range does not start at boundary.
 
-    Raised: (Invalid_argument "invalid UTF-8")
+    note: Invalid unicode range
+        ┌─ moon_jump.rs:1:3
+      1 │  🐄🌑🐄🌒🐄🌓🐄🌔🐄🌕🐄🌖🐄🌗🐄🌘🐄
+        │    - Cow range does not end at boundary
 
-    Raised: (Invalid_argument "invalid UTF-8") |}]
+    note: Invalid unicode range
+        ┌─ moon_jump.rs:1:2
+      1 │  🐄🌑🐄🌒🐄🌓🐄🌔🐄🌕🐄🌖🐄🌗🐄🌘🐄
+        │   ----- Cow does not start or end at boundary.
+    |}]
 ;;
 
 let%expect_test "empty range" =
