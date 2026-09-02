@@ -1213,7 +1213,7 @@ let%expect_test "error at the end of a long line" =
   in
   pr_diagnostics [ diagnostic ];
   [%expect
- {|
+    {|
     error: cannot find value `missing` in this scope
         ┌─ foo.rs:2:140
       2 │    println!("What happens when I have an error at a really high column? Let's find out by trying to print something that doesn't exist {}", missing);
@@ -1221,5 +1221,93 @@ let%expect_test "error at the end of a long line" =
         │                                                                                                                                                     did you mean 'missingo'?
 
     foo.rs:2:140: error: cannot find value `missing` in this scope
-    |}] [@ocamlformat "disable"]
+    |}]
+;;
+
+let with_term term f =
+  let open Core_unix in
+  let previous_term = Sys.getenv "TERM" in
+  putenv ~key:"TERM" ~data:term;
+  Exn.protect ~f ~finally:(fun () ->
+    match previous_term with
+    | Some term -> putenv ~key:"TERM" ~data:term
+    | None -> unsetenv "TERM")
+;;
+
+let ansi_test_diagnostic : _ Diagnostic.t =
+  let content = "let result = foo + bar" in
+  let source : Source.t = `String { name = None; content } in
+  Diagnostic.(
+    createf
+      ~labels:
+        [ Label.primaryf
+            ~range:(range ~source 13 16)
+            "@[<v2>label1:@ continuation 1@]@ unboxed 1"
+        ; Label.secondaryf
+            ~range:(range ~source 19 22)
+            "@[<v2>label2:@ continuation 2@]@ unboxed 2"
+        ]
+      Error
+      "test hanging label indentation")
+;;
+
+let%expect_test "pr/epr respect TERM=dumb" =
+  with_term "dumb"
+  @@ fun () ->
+  Grace_ansi_renderer.pr_diagnostic ansi_test_diagnostic;
+  [%expect
+    {|
+    error: test hanging label indentation
+        ┌─ unknown:1:14
+      1 │  let result = foo + bar
+        │               ^^^   --- label2:
+        │               │           continuation 2
+        │               │         unboxed 2
+        │               │
+        │               label1:
+        │                 continuation 1 unboxed 1
+    |}];
+  Grace_ansi_renderer.epr_diagnostic ansi_test_diagnostic;
+  [%expect
+    {|
+    error: test hanging label indentation
+        ┌─ unknown:1:14
+      1 │  let result = foo + bar
+        │               ^^^   --- label2:
+        │               │           continuation 2
+        │               │         unboxed 2
+        │               │
+        │               label1:
+        │                 continuation 1 unboxed 1
+    |}]
+;;
+
+let%expect_test "pr/epr use_ansi=true" =
+  let config = { Grace_ansi_renderer.Config.default with use_ansi = Some true } in
+  Grace_ansi_renderer.pr_diagnostic ~config ansi_test_diagnostic;
+  [%expect
+    {|
+    [1m[91merror[0;1m[0m[1m[91m[0;1m[0m: [1mtest hanging label indentation[0m
+        [36m┌─[0m unknown:1:14
+    [36m  1[0m [36m│[0m  let result = [31mfoo[0m + bar
+        [36m│[0m               [31m^[0m[31m^[0m[31m^[0m   [36m-[0m[36m-[0m[36m-[0m [36mlabel2:
+        [36m│[0m               [31m│[0m           continuation 2
+        [36m│[0m               [31m│[0m         unboxed 2[0m
+        [36m│[0m               [31m│[0m
+        [36m│[0m               [31mlabel1:
+        [36m│[0m                 continuation 1 unboxed 1[0m
+    |}];
+  Grace_ansi_renderer.epr_diagnostic ~config ansi_test_diagnostic;
+  [%expect
+    {|
+    [1m[91merror[0;1m[0m[1m[91m[0;1m[0m: [1mtest hanging label indentation[0m
+        [36m┌─[0m unknown:1:14
+    [36m  1[0m [36m│[0m  let result = [31mfoo[0m + bar
+        [36m│[0m               [31m^[0m[31m^[0m[31m^[0m   [36m-[0m[36m-[0m[36m-[0m [36mlabel2:
+        [36m│[0m               [31m│[0m           continuation 2
+        [36m│[0m               [31m│[0m         unboxed 2[0m
+        [36m│[0m               [31m│[0m
+        [36m│[0m               [31mlabel1:
+        [36m│[0m                 continuation 1 unboxed 1[0m
+    |}]
 ;;
