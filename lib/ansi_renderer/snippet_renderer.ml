@@ -832,9 +832,6 @@ let pp_snippet
       ppf
       ({ severity; message; code; sources; notes } : 'code Snippet.t)
   =
-  Fmt.set_style_renderer
-    ppf
-    (Config.style_renderer config |> Option.value ~default:`Ansi_tty);
   Format.pp_set_geometry ppf ~max_indent:2 ~margin:(Format.pp_infinity - 1);
   let line_num_width = line_num_width sources in
   let multi_width = multi_width sources in
